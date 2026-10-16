@@ -1,0 +1,73 @@
+% Fig.: the components of GhostVault and what they talk to.
+\begin{tikzpicture}[
+  font=\footnotesize,
+  node distance=4mm,
+  box/.style={draw=black!65, fill=white, rounded corners=1.2pt, align=center, inner sep=2.6pt,
+              minimum height=8.5mm, text width=#1},
+  box/.default=27mm,
+  core/.style={box=#1, fill=black!5},
+  dark/.style={box=#1, fill=black!78, draw=black!78, text=white},
+  region/.style={draw=black!35, rounded corners=3pt, inner sep=3.2mm},
+  title/.style={font=\scriptsize\scshape, text=black!60, anchor=south west},
+  arr/.style={-{Latex[length=1.5mm,width=1.2mm]}, draw=black!65, semithick},
+  both/.style={{Latex[length=1.5mm,width=1.2mm]}-{Latex[length=1.5mm,width=1.2mm]}, draw=black!65, semithick},
+  note/.style={font=\scriptsize\itshape, text=black!60, align=center},
+]
+% --- the user's side -------------------------------------------------------------------------
+\node[box=25mm] (gui) {Tk window\\\texttt{gui/}};
+\node[box=25mm, below=3mm of gui] (cli) {Command line\\\texttt{app.py}};
+
+% --- the core --------------------------------------------------------------------------------
+\node[core=40mm, right=10mm of gui, yshift=-5.75mm, minimum height=21mm] (vault)
+  {\textbf{Vault} \texttt{vault.py}\\[1pt]
+   ghost, restore, clean up, recover,\\ rename, previews, Reset\\[2pt]
+   \scriptsize journal: one record per ghost\\
+   \scriptsize placement \texttt{placement.py}\\
+   \scriptsize recovery files, backup \texttt{backup.py}};
+
+\node[box=19mm, below=8mm of vault.south west, anchor=north west] (crypto)
+  {\texttt{crypto.py}\\\texttt{recovery.py}\\\scriptsize AES-GCM, HKDF,\\\scriptsize Argon2id};
+\node[box=19mm, right=2mm of crypto] (files)
+  {\texttt{files.py}\\\scriptsize the original:\\\scriptsize open, read,\\\scriptsize remove safely};
+\node[box=19mm, left=2mm of crypto] (store)
+  {\texttt{store.py}\\\texttt{fsutil.py}\\\scriptsize records, durable\\\scriptsize writes, lock};
+
+% --- GitHub layer ----------------------------------------------------------------------------
+\node[core=33mm, right=9mm of vault, minimum height=21mm] (gh)
+  {\textbf{GitHub layer} \texttt{github.py}\\[2pt]
+   \scriptsize ResilientApi: retries, rate\\\scriptsize limits, write pacing\\[1pt]
+   \scriptsize HttpTransport: one HTTPS\\\scriptsize connection per thread,\\\scriptsize proxies, redirects};
+\node[box=33mm, below=8mm of gh] (keys)
+  {\texttt{credentials.py}\quad \texttt{tls.py}\\\scriptsize tokens \quad certificate checks};
+
+% --- outside GhostVault ----------------------------------------------------------------------
+\node[dark=31mm, right=10mm of gh, minimum height=21mm] (github)
+  {\textbf{GitHub}\\[1pt]\scriptsize \texttt{api.github.com}\\[3pt]
+   \scriptsize private repositories:\\\scriptsize blobs, trees, commits,\\\scriptsize one branch each};
+\node[box=33mm, below=5mm of keys, fill=black!3] (os)
+  {\scriptsize the operating system's\\\scriptsize keychain \quad trust store};
+
+\node[box=40mm, below=7mm of crypto.south, anchor=north, xshift=-10.5mm, fill=black!3] (folder)
+  {\textbf{Data folder} \scriptsize (owner-only)\\\scriptsize records with keys, encrypted\\\scriptsize previews, settings, log, lock};
+\node[box=25mm, anchor=north, fill=black!3] (yours) at ([xshift=6mm]files.south |- folder.north)
+  {\textbf{Your files}\\\scriptsize originals,\\\scriptsize restored files};
+
+% --- arrows ----------------------------------------------------------------------------------
+\draw[arr] (gui.east) -- ++(4.5mm,0) |- ([yshift=4mm]vault.west);
+\draw[arr] (cli.east) -- ++(4.5mm,0) |- ([yshift=-4mm]vault.west);
+\draw[arr] (vault.east) -- node[above, note] {requests} (gh.west);
+\draw[both] (gh.east) -- node[above, note] {HTTPS} node[below, note] {JSON} (github.west);
+\draw[arr] (gh.south) -- (keys.north);
+\draw[both] (keys.south) -- (os.north);
+\draw[arr] (vault.south -| crypto.north) -- (crypto.north);
+\draw[arr] ([xshift=-12mm]vault.south) -- (store.north);
+\draw[arr] ([xshift=12mm]vault.south) -- (files.north);
+\draw[both] (store.south) -- (store.south |- folder.north);
+\draw[both] (files.south) -- (files.south |- yours.north);
+
+% --- regions ---------------------------------------------------------------------------------
+\begin{scope}[on background layer]
+  \node[region, fit=(gui)(cli)(vault)(gh)(keys)(os)(store)(files)(folder)(yours)] (pc) {};
+\end{scope}
+\node[title] at (pc.north west) {this computer};
+\end{tikzpicture}

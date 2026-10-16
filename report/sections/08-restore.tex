@@ -1,0 +1,47 @@
+\section{Restoring a File}\label{sec:restore}
+
+\subsection{Writing the file}
+A restore starts only for a ghost in state \state{ready}, into a folder the user chooses, under a
+name that may not exist there and must fit in 255 bytes. The record moves to \state{restoring} and
+names the destination and a hidden temporary file beside it,
+\code{.<name>.<12\nobreakspace{}hex>.ghostvault-part}, created exclusively and readable by the owner only.
+
+Chunks are downloaded in parallel, eight at a time, with at most sixteen held in memory, and are
+written into the temporary file in order. Each is checked as described in \secref{sec:checks}
+before it is written, and the first failure stops every further download. After the last chunk the
+whole file's SHA-256 is compared with the original's. The file then gets the original's permission
+bits (without setuid, setgid or sticky bits) and its access and modification times, or on Windows
+its read-only attribute and times, and is flushed to disk. Nothing has a final name yet; a failure
+up to here removes the temporary file and leaves the ghost \state{ready}.
+
+\subsection{Publishing without replacing}\label{sec:publish}
+The finished file is given its final name in a way that can never replace a file, however recently
+that file appeared. On Linux and macOS this is a hard link to the final name, which fails if the
+name exists, followed by removal of the temporary name; on file systems without hard links it is
+\code{renameat2} with \code{RENAME\_NOREPLACE} (Linux) or \code{renamex\_np} with
+\code{RENAME\_EXCL} (macOS), and where neither exists the restore is refused rather than risk an
+overwrite. On Windows it is \code{MoveFileExW} without the replace flag and with write-through. If a
+file of that name appeared during the restore, it is left untouched, the temporary file is removed,
+and the user is asked for another name. The folder is then flushed, and only then does the record
+move to \state{cleanup}.
+
+\subsection{Removing the remote copy}
+Clean-up removes the ghost's paths from each repository with one commit, then reads the branch again;
+the removal is complete only when a fresh listing shows none of them. A round that GitHub refused,
+applied only in part, or acknowledged without effect is followed by another, after 2, 4 and 8\,s,
+up to four rounds. Rounds can be repeated safely: the paths are random and recorded, absent ones are
+skipped, and the branch is never forced. A refusal that repeating cannot fix (a rejected token, a
+missing repository, an exhausted rate limit) ends the rounds at once. If paths are still listed after
+the last round, the error says how many, with GitHub's last status, message and request id and what
+each round sent and saw; the ghost stays in \state{cleanup}, is shown with a Retry button, and is
+retried at the next start.
+
+Only when every repository has confirmed the removal are the record and its cached preview deleted.
+Before the record is deleted, its id is added to the ghosts GhostVault has removed (when a recovery
+file or the repository backup may hold it), so that a later backup can leave it out without the
+removal being mistaken for a lost record (\secref{sec:incomplete}).
+
+Removal takes the ghost off the branch. It does not erase it: the commits that added the chunks
+remain in the repository's history, and GitHub may keep unreachable objects for a time. A removed
+ghost stays unreadable only as long as its key exists nowhere: not in the data folder, not in a
+backup of that folder, and not in a recovery bundle made while the ghost existed.

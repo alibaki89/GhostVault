@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    # Dependabot pushes each update to a branch of this repository and opens a pull request
+    # for it. Its updates are tested once, as the pull request (which is what gets merged).
+    branches-ignore:
+      - "dependabot/**"
+  pull_request:
+  workflow_dispatch:
+  workflow_call:  # the release workflow runs these checks before it builds anything
+
+permissions:
+  contents: read
+
+concurrency:
+  # When the release workflow calls this one, github.workflow is the caller's name, so the
+  # two never share a group.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: python -m pip install "ruff==0.16.8"
+      - run: ruff check .
+      - name: Check the shell scripts
+        run: |
+          command -v shellcheck > /dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+          shellcheck --shell=sh packaging/linux/*.sh
+
+  audit:
+    # Known vulnerabilities in the dependencies GhostVault would install today.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Resolve exactly what a user installing GhostVault gets
+        run: |
+          python -m venv "$RUNNER_TEMP/app"
+          "$RUNNER_TEMP/app/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/app/bin/python" -m pip install .
+          "$RUNNER_TEMP/app/bin/python" -m pip freeze --exclude ghostvault | tee "$RUNNER_TEMP/requirements.txt"
+      - name: Check those versions against the PyPI advisory database
+        run: |
+          python -m pip install "pip-audit>=2.7"
+          python -m pip_audit --progress-spinner off --no-deps --disable-pip -r "$RUNNER_TEMP/requirements.txt"
+
+  test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest: Ubuntu 24.04 x86-64; windows-latest: Windows Server 2025 x86-64;
+        # macos-latest: macOS 26 on Apple Silicon; macos-15-intel: macOS 15 on Intel.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+        # Oldest supported, a middle release, and the newest Python.
+        python: ["3.11", "3.13", "3.14"]
+    env:
+      # The GUI tests must run here: a missing Tk or display is a failure, not a skip.
+      GV_REQUIRE_GUI: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install a virtual display and a desktop keyring (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libtk8.6 dbus-x11 gnome-keyring
+
+      - name: Install GhostVault with its development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Report the screen the GUI tests get
+        # GitHub's Windows runners have a 1024 x 768 screen, which limits window sizes there.
+        # Printed so that a run shows what it tested on.
+        shell: bash
+        run: |
+          probe='import tkinter; r = tkinter.Tk(); print("screen", r.winfo_screenwidth(), "x", r.winfo_screenheight(), "at", round(r.winfo_fpixels("1i")), "dpi; Tk", r.tk.call("info", "patchlevel")); r.destroy()'
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a -s "-screen 0 1920x1200x24" python -c "$probe"; else python -c "$probe"; fi
+
+      - name: Report the environment
+        run: >
+          python -c "import importlib.metadata, platform, sys, tkinter, cryptography, PIL, keyring.backend;
+          print(platform.platform(), platform.machine());
+          print('Python', sys.version);
+          print('Tk', tkinter.TkVersion, '| cryptography', cryptography.__version__, '| Pillow', PIL.__version__,
+          '| keyring', importlib.metadata.version('keyring'));
+          print('keyring backends', [type(b).__module__ + '.' + type(b).__name__ for b in keyring.backend.get_all_keyring()])"
+
+      # -v names each test as it starts, so a hang shows where; GV_TEST_TIMEOUT (seconds)
+      # makes a test that runs longer, or a process that does not exit after the last test,
+      # print every thread's stack and fail (tests/conftest.py), instead of running into the
+      # job's limit with no clue. --durations lists the slowest tests.
+      - name: Run the tests (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        timeout-minutes: 20
+        env:
+          GV_TEST_TIMEOUT: "300"
+        # A screen with room for the 150 % window (1350 x 900), so its real size is checked too.
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python -m pytest -v --durations=25 --junitxml=test-results.xml
+
+      # Windows Credential Manager and the macOS login keychain are available on the hosted
+      # runners, so the real-keychain round trip is part of the required run there.
+      - name: Run the tests (Windows, macOS, with the real keychain)
+        if: runner.os != 'Linux'
+        timeout-minutes: 20
+        env:
+          GV_REAL_KEYCHAIN: "1"
+          GV_TEST_TIMEOUT: "300"
+        run: python -m pytest -v --durations=25 --junitxml=test-results.xml
+
+      # Linux has no keychain daemon on a CI machine. This step starts GNOME Keyring in a
+      # private D-Bus session and runs the round trip through Secret Service. It does not
+      # fail the job, because it tests the CI machine's set-up as much as GhostVault.
+      - name: Real keychain round trip (Linux, Secret Service)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        env:
+          GV_REAL_KEYCHAIN: "1"
+        run: |
+          dbus-run-session -- bash -c '
+            echo -n "ci-test-password" | gnome-keyring-daemon --unlock --components=secrets > /dev/null
+            python -m pytest -rA -k real_keychain tests/test_credentials.py'
+
+      - name: Check the launcher
+        run: |
+          python -m ghostvault --version
+          ghostvault --version
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python }}
+          path: test-results.xml
+          if-no-files-found: warn
+
+  package:
+    # The wheel installs and starts without the source tree, and ships no tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Build the wheel
+        run: python -m pip wheel --no-deps -w dist .
+      - name: Install it into a clean environment and start it
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/ghostvault" --version
+          "$RUNNER_TEMP/venv/bin/python" -c "import ghostvault.vault, ghostvault.github, ghostvault.credentials"
+      - name: Check the wheel contents
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          print("\n".join(names))
+          bad = [n for n in names if n.startswith(("tests/", "legacy/")) or "__pycache__" in n]
+          assert not bad, bad
+          assert any(n.endswith("licenses/LICENSE") for n in names), "LICENSE missing from the wheel"
+          PY

@@ -1,0 +1,59 @@
+{
+ "rule": "non-blank lines that are not comment-only lines; docstrings count",
+ "components": [
+  {
+   "component": "Operations and journal",
+   "code": 1408,
+   "tests": 854
+  },
+  {
+   "component": "Files and local state",
+   "code": 991,
+   "tests": 1216
+  },
+  {
+   "component": "GitHub and tokens",
+   "code": 867,
+   "tests": 1407
+  },
+  {
+   "component": "Recovery",
+   "code": 964,
+   "tests": 872
+  },
+  {
+   "component": "Cryptography and previews",
+   "code": 217,
+   "tests": 500
+  },
+  {
+   "component": "Interface",
+   "code": 2514,
+   "tests": 1139
+  },
+  {
+   "component": "Shared",
+   "code": 200,
+   "tests": 639
+  },
+  {
+   "component": "Release tooling",
+   "code": 1473,
+   "tests": 519
+  },
+  {
+   "component": "Test support",
+   "code": 0,
+   "tests": 705
+  }
+ ],
+ "application": {
+  "files": 28,
+  "lines": 7161
+ },
+ "tests": {
+  "files": 29,
+  "lines": 7851
+ },
+ "release_tooling": 1473
+}

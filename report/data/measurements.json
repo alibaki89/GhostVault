@@ -1,0 +1,471 @@
+{
+ "environment": {
+  "ghostvault": "1.0.0",
+  "python": "3.13.14",
+  "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cpus": 2,
+  "cryptography": "50.0.1",
+  "openssl": "OpenSSL 4.0.2 25 Aug 2026"
+ },
+ "crypto": {
+  "encrypt": {
+   "MiB_per_s": 1603.4
+  },
+  "decrypt": {
+   "MiB_per_s": 1755.3
+  },
+  "sha256": {
+   "MiB_per_s": 1313.3
+  },
+  "git_blob_sha1": {
+   "MiB_per_s": 1402.8
+  },
+  "ciphertext_overhead_bytes": 16
+ },
+ "kdf": {
+  "params": {
+   "name": "argon2id",
+   "iterations": 3,
+   "lanes": 4,
+   "memoryKiB": 262144
+  },
+  "seconds_min": 0.639,
+  "seconds_median": 0.678
+ },
+ "cycles": [
+  {
+   "size_MiB": 1,
+   "latency_ms": 0.0,
+   "ghost": {
+    "seconds": 0.037,
+    "requests": {
+     "GET": 14,
+     "PATCH": 2,
+     "POST": 6,
+     "PUT": 2
+    },
+    "write_requests": 10,
+    "peak_memory_MiB": 3.5,
+    "peak_data_folder_MiB": 0.0,
+    "MiB_per_s": 27.0,
+    "pacing_floor_s": 10
+   },
+   "restore": {
+    "seconds": 0.041,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 3.5,
+    "peak_data_folder_MiB": 0.0,
+    "MiB_per_s": 24.4,
+    "pacing_floor_s": 6
+   },
+   "chunks": 2,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 16,
+   "latency_ms": 0.0,
+   "ghost": {
+    "seconds": 0.203,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 36,
+     "PUT": 2
+    },
+    "write_requests": 40,
+    "peak_memory_MiB": 4.0,
+    "peak_data_folder_MiB": 0.02,
+    "MiB_per_s": 78.8,
+    "pacing_floor_s": 40
+   },
+   "restore": {
+    "seconds": 0.335,
+    "requests": {
+     "GET": 46,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 5.2,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 47.8,
+    "pacing_floor_s": 6
+   },
+   "chunks": 32,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 64,
+   "latency_ms": 0.0,
+   "ghost": {
+    "seconds": 0.875,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 132,
+     "PUT": 2
+    },
+    "write_requests": 136,
+    "peak_memory_MiB": 4.1,
+    "peak_data_folder_MiB": 0.04,
+    "MiB_per_s": 73.1,
+    "pacing_floor_s": 136
+   },
+   "restore": {
+    "seconds": 1.263,
+    "requests": {
+     "GET": 142,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 5.5,
+    "peak_data_folder_MiB": 0.09,
+    "MiB_per_s": 50.7,
+    "pacing_floor_s": 6
+   },
+   "chunks": 128,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 256,
+   "latency_ms": 0.0,
+   "ghost": {
+    "seconds": 4.189,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 516,
+     "PUT": 2
+    },
+    "write_requests": 520,
+    "peak_memory_MiB": 4.4,
+    "peak_data_folder_MiB": 0.34,
+    "MiB_per_s": 61.1,
+    "pacing_floor_s": 520
+   },
+   "restore": {
+    "seconds": 4.585,
+    "requests": {
+     "GET": 526,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 5.5,
+    "peak_data_folder_MiB": 0.34,
+    "MiB_per_s": 55.8,
+    "pacing_floor_s": 6
+   },
+   "chunks": 512,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 1,
+   "latency_ms": 20.0,
+   "ghost": {
+    "seconds": 0.533,
+    "requests": {
+     "GET": 14,
+     "PATCH": 2,
+     "POST": 6,
+     "PUT": 2
+    },
+    "write_requests": 10,
+    "peak_memory_MiB": 3.5,
+    "peak_data_folder_MiB": 0.0,
+    "MiB_per_s": 1.9,
+    "pacing_floor_s": 10
+   },
+   "restore": {
+    "seconds": 0.471,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 3.5,
+    "peak_data_folder_MiB": 0.0,
+    "MiB_per_s": 2.1,
+    "pacing_floor_s": 6
+   },
+   "chunks": 2,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 16,
+   "latency_ms": 20.0,
+   "ghost": {
+    "seconds": 1.406,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 36,
+     "PUT": 2
+    },
+    "write_requests": 40,
+    "peak_memory_MiB": 4.0,
+    "peak_data_folder_MiB": 0.02,
+    "MiB_per_s": 11.4,
+    "pacing_floor_s": 40
+   },
+   "restore": {
+    "seconds": 0.73,
+    "requests": {
+     "GET": 46,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 6.5,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 21.9,
+    "pacing_floor_s": 6
+   },
+   "chunks": 32,
+   "chunks_left_on_github": 0
+  }
+ ],
+ "padding": [
+  {
+   "size_bytes": 0,
+   "padded": {
+    "chunks": 0,
+    "stored_bytes": 0,
+    "chunk_blob_sizes": []
+   },
+   "unpadded": {
+    "chunks": 0,
+    "stored_bytes": 0,
+    "chunk_blob_sizes": []
+   }
+  },
+  {
+   "size_bytes": 1,
+   "padded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 1,
+    "stored_bytes": 17,
+    "chunk_blob_sizes": [
+     17
+    ]
+   }
+  },
+  {
+   "size_bytes": 1024,
+   "padded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 1,
+    "stored_bytes": 1040,
+    "chunk_blob_sizes": [
+     1040
+    ]
+   }
+  },
+  {
+   "size_bytes": 102400,
+   "padded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 1,
+    "stored_bytes": 102416,
+    "chunk_blob_sizes": [
+     102416
+    ]
+   }
+  },
+  {
+   "size_bytes": 524287,
+   "padded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 1,
+    "stored_bytes": 524303,
+    "chunk_blob_sizes": [
+     524303
+    ]
+   }
+  },
+  {
+   "size_bytes": 524288,
+   "padded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 1,
+    "stored_bytes": 524304,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   }
+  },
+  {
+   "size_bytes": 524289,
+   "padded": {
+    "chunks": 2,
+    "stored_bytes": 1048608,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 2,
+    "stored_bytes": 524321,
+    "chunk_blob_sizes": [
+     17,
+     524304
+    ]
+   }
+  },
+  {
+   "size_bytes": 5242881,
+   "padded": {
+    "chunks": 11,
+    "stored_bytes": 5767344,
+    "chunk_blob_sizes": [
+     524304
+    ]
+   },
+   "unpadded": {
+    "chunks": 11,
+    "stored_bytes": 5243057,
+    "chunk_blob_sizes": [
+     17,
+     524304
+    ]
+   }
+  }
+ ],
+ "scaling": [
+  {
+   "ghosts": 100,
+   "listed": 100,
+   "ghosting_s_per_ghost": 0.0259,
+   "open_s": 0.0,
+   "list_s": 0.005,
+   "recover_s": 0.011,
+   "record_bytes_per_ghost": 1578
+  },
+  {
+   "ghosts": 1000,
+   "listed": 1000,
+   "ghosting_s_per_ghost": 0.0564,
+   "open_s": 0.0,
+   "list_s": 0.07,
+   "recover_s": 0.164,
+   "record_bytes_per_ghost": 1581
+  },
+  {
+   "ghosts": 3000,
+   "listed": 3000,
+   "ghosting_s_per_ghost": 0.124,
+   "open_s": 0.0,
+   "list_s": 0.17,
+   "recover_s": 0.644,
+   "record_bytes_per_ghost": 1583
+  }
+ ],
+ "placement": [
+  {
+   "size_MiB": 16,
+   "latency_ms": 0.0,
+   "placement": "distributed",
+   "ghost": {
+    "seconds": 0.358,
+    "requests": {
+     "GET": 16,
+     "PATCH": 2,
+     "POST": 36,
+     "PUT": 2
+    },
+    "write_requests": 40,
+    "peak_memory_MiB": 4.0,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 44.7,
+    "pacing_floor_s": 40
+   },
+   "restore": {
+    "seconds": 0.58,
+    "requests": {
+     "GET": 46,
+     "PATCH": 2,
+     "POST": 4
+    },
+    "write_requests": 6,
+    "peak_memory_MiB": 4.1,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 27.6,
+    "pacing_floor_s": 6
+   },
+   "chunks": 32,
+   "chunks_left_on_github": 0
+  },
+  {
+   "size_MiB": 16,
+   "latency_ms": 0.0,
+   "placement": "consolidated",
+   "ghost": {
+    "seconds": 0.278,
+    "requests": {
+     "GET": 8,
+     "PATCH": 1,
+     "POST": 34,
+     "PUT": 1
+    },
+    "write_requests": 36,
+    "peak_memory_MiB": 4.0,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 57.6,
+    "pacing_floor_s": 36
+   },
+   "restore": {
+    "seconds": 0.406,
+    "requests": {
+     "GET": 39,
+     "PATCH": 1,
+     "POST": 2
+    },
+    "write_requests": 3,
+    "peak_memory_MiB": 4.4,
+    "peak_data_folder_MiB": 0.01,
+    "MiB_per_s": 39.4,
+    "pacing_floor_s": 3
+   },
+   "chunks": 32,
+   "chunks_left_on_github": 0
+  }
+ ]
+}

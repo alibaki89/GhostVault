@@ -1,0 +1,93 @@
+\section{Threat Model and Security Boundaries}\label{sec:threats}
+
+\subsection{Three different kinds of protection}
+It is easy to read ``encrypted files in private repositories'' as one guarantee. It is three, with
+different owners, and GhostVault provides only the first.
+
+\emph{The content of a file is protected by cryptography.} Its confidentiality and integrity hold
+against anyone who can read or change the repositories, GitHub included, as long as the keys stay
+secret and AES-GCM is secure. Nothing about this depends on the repositories being private.
+
+\emph{Who can read the repositories is decided by GitHub's access control.} ``Private'' is a
+GitHub setting, not encryption. GhostVault refuses a repository that is public, archived or not
+writable with the given token when it is added (\secref{sec:gh-checks}), but afterwards GitHub
+alone decides who can read it: collaborators, holders of any token with access, GitHub itself,
+and everyone if the repository is ever made public. Because of the encryption, what such readers
+gain is limited to the metadata in \tabref{tab:learn}; but they do gain that.
+
+\emph{Whether the data is still there is decided by GitHub.} Each chunk is stored exactly once.
+If a repository is deleted, an account suspended, a token's access withdrawn for good or the data
+lost, every ghost with a chunk there is lost; GitHub's acceptable use policies reserve the right
+to ``suspend your Account, throttle your file hosting, or otherwise limit your activity'' when
+bandwidth use is ``significantly excessive''~\cite{gh-aup}. GhostVault detects missing or damaged
+data and refuses to restore it wrongly; it cannot bring it back. And once a file is ghosted, the
+ghost is its only copy unless the user keeps others.
+
+\begin{table*}[t]
+\caption{Who the design considers, what they can do, and what stops them}\label{tab:parties}
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{@{}L{36mm}L{48mm}Y@{}}
+\toprule
+\textbf{Party or event} & \textbf{Can} & \textbf{What GhostVault does about it} \\
+\midrule
+GitHub, or anyone who can read the repositories & read every blob, tree and commit, with their
+times and history & only ciphertext under keys they never see; random paths; neutral commit
+messages; padding hides exact sizes. They learn what \tabref{tab:learn} lists. \\ \addlinespace[1.6pt]
+Someone on the network & read or change traffic & TLS, with GitHub's certificate verified against
+the operating system's trust store. \\ \addlinespace[1.6pt]
+Someone who changes the data on GitHub & change, swap, truncate or delete chunks & detected: every
+chunk is checked against its content id, its SHA-256 and its GCM tag, whose associated data binds
+file, position, count, size and padding. A restore fails without writing anything under the file's
+name. Deleted data cannot be brought back. \\ \addlinespace[1.6pt]
+Crashes, power loss, a full disk, network failures & interrupt any operation at any point & every
+step that changes something outside the data folder is journaled first; the next start finishes or
+undoes it (\secref{sec:journal}). \\ \addlinespace[1.6pt]
+Another program working on the same files & replace, edit or rename the original or the restored
+file's name while GhostVault works & the original is moved to a hidden name and checked there before
+it is deleted; a restored file is published without replacing anything (Sections~\ref{sec:remove}
+and~\ref{sec:publish}). \\ \addlinespace[1.6pt]
+Another account on the computer, a stolen disk, a copy of the data folder & read what file
+permissions let them read & partly: the data folder is readable by its owner only, but the keys
+in it are not encrypted (\secref{sec:keys}); disk encryption and protected backups of the folder
+are the user's part. \\ \addlinespace[1.6pt]
+Malware running as the user & everything the user can do & not covered: it can read the data
+folder and the keychain and watch what is opened. \\ \addlinespace[1.6pt]
+A compromised dependency, build tool or release & run code inside GhostVault & partly:
+dependencies are audited in CI, build tools are pinned, releases carry SHA-256 checksums, and builds
+are signed when a certificate is configured (\secref{sec:builds}). \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Parties and events}
+\tabref{tab:parties} lists who the design considers and what stops each of them. GhostVault
+trusts the operating system, the user's account, the Python runtime, the \code{cryptography}
+library and the OpenSSL inside it, and the operating system's certificate store for TLS. It does
+not trust GitHub's replies, the state of a file between two system calls, or its own state files
+after a crash; each is checked before anything depends on it.
+
+\subsection{What GitHub learns}\label{sec:learn}
+\tabref{tab:learn} lists what anyone who can read the repositories learns, and what stays hidden.
+Commit messages are always \code{Update}, and paths are random, so neither the tree nor the history
+names a file. A network observer sees only that the computer talks to \code{api.github.com}, how
+much and when.
+
+\begin{table}[t]
+\caption{What readers of the repositories learn}\label{tab:learn}
+\centering\footnotesize
+\begin{tabular}{@{}L{40mm}L{40mm}@{}}
+\toprule
+\textbf{They learn} & \textbf{They do not learn} \\
+\midrule
+that the account stores GhostVault-shaped encrypted data, and how much & file names, types or
+content \\ \addlinespace[1.6pt]
+each ghost's chunk count, so its size to within 512\,KiB with padding (the default), or exactly
+without & the exact size, when padding is on \\ \addlinespace[1.6pt]
+when each ghost was uploaded and removed, where, and which chunks were committed together &
+original paths, timestamps, or hashes of the plaintext \\ \addlinespace[1.6pt]
+whether a ghost has a preview (all previews have one size) & what a preview shows, or its
+dimensions \\ \addlinespace[1.6pt]
+the account's addresses and active times & keys, nonces or tokens \\
+\bottomrule
+\end{tabular}
+\end{table}

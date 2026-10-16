@@ -1,0 +1,46 @@
+\section{Introduction}\label{sec:intro}
+
+\subsection{The problem}
+Many files must be kept but are rarely opened: finished projects, scans, archives, old
+photographs. Keeping them on the computer costs space; moving them to a storage service hands
+them to a provider that can read them, or that holds the keys that would let it. Many people who
+write software already have something else: private GitHub repositories, reached through a
+well-documented HTTPS interface, with an access-controlled place to put data.
+
+Two facts stand in the way of simply putting files there. A private repository is private only
+by GitHub's access control: GitHub, every collaborator, and anyone holding a token with access
+can read every byte of it, and so can everyone if the repository is ever made public. And GitHub
+is explicit that ``Git is not designed to serve as a backup tool''~\cite{gh-large}; a repository
+can be deleted, an account suspended, a token revoked.
+
+\subsection{The idea}
+GhostVault treats the repositories as an untrusted store of opaque objects. A file is
+\emph{ghosted}: it is encrypted on the computer, uploaded in chunks, checked on GitHub, and then
+removed from the computer. What remains locally is a \emph{ghost}: a small record that holds the
+file's key and the location of every chunk, shown as a card in GhostVault's window.
+\emph{Restoring} a ghost downloads and checks its chunks, writes the file into a folder the user
+chooses, and then removes its copy from GitHub. Everything GitHub receives about a file is
+encrypted: it never sees the file's key, its name or its content.
+
+The consequence that shapes the whole design is that GhostVault deletes the user's files on
+purpose. Encryption is the easier part; the harder part is deciding, after crashes, network
+failures, misleading replies and other programs touching the same files, when a deletion is
+allowed. The original is deleted only once its encrypted copy has been shown to be on GitHub, and
+the remote copy only once the restored file is safely on disk. Most of this report is about how
+those two decisions are made and recorded.
+
+\subsection{What this report covers}
+This is a systems report about GhostVault 1.0.0. It describes what the system is made of, the
+formats it writes, the rules its operations follow and why, and how it was checked. Every
+statement about behaviour was checked against the source code; every number comes from a
+measurement whose method is given, run on one stated machine; and what has not been verified is
+listed in \secref{sec:status}. The report aims to be as precise about what GhostVault does not do
+as about what it does.
+
+\secref{sec:overview} gives an overview and \secref{sec:principles} the principles behind the
+design. \secref{sec:threats} sets out the threat model and the boundaries of the protection.
+Sections~\ref{sec:crypto} to \ref{sec:recovery} describe the cryptography, the local state and
+its journal, ghosting, restoring, the use of GitHub, and recovery.
+Sections~\ref{sec:app} and~\ref{sec:impl} cover the desktop application, its standalone builds and
+the implementation. Sections~\ref{sec:verification} and~\ref{sec:performance} report verification
+and performance, and \secref{sec:limitations} the limitations.

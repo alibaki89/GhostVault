@@ -1,0 +1,130 @@
+% GhostVault: Encrypted File Storage Across Private GitHub Repositories
+% System Design and Implementation Report
+%
+% Build with XeLaTeX (two runs, for the cross-references):
+%     latexmk -xelatex ghostvault-report.tex        or        make
+% Fonts: TeX Gyre Termes and TeX Gyre Heros (TeX Live), Liberation Mono.
+% Figures are TikZ/pgfplots sources in figures/; the data behind the charts is in data/.
+
+\documentclass[10pt,twocolumn,letterpaper]{article}
+\usepackage[letterpaper,top=0.75in,bottom=0.9in,left=0.625in,right=0.625in,columnsep=0.25in]{geometry}
+
+\usepackage{amsmath}
+\usepackage{mathptmx}
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Heros}[Scale=MatchLowercase]
+\setmonofont{Liberation Mono}[Scale=0.84]
+\usepackage{microtype}
+\usepackage{xcolor,graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,backgrounds,shapes.geometric}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{array,booktabs,tabularx,multirow}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{stfloats}
+\usepackage{xurl}
+\usepackage[hidelinks,pdfusetitle]{hyperref}
+\hypersetup{
+  pdftitle={GhostVault: Encrypted File Storage Across Private GitHub Repositories},
+  pdfsubject={System Design and Implementation Report, GhostVault 1.0.0},
+  pdfkeywords={encrypted storage, authenticated encryption, AES-GCM, GitHub, Git object store,
+               crash consistency, journaling, desktop application},
+}
+
+% ---- headings in the style of IEEE transactions ------------------------------------------------
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\thesection\mbox{-}\Alph{subsection}}
+\titleformat{\section}{\normalsize\scshape\centering}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{1.7ex plus .5ex minus .2ex}{0.8ex plus .2ex}
+\titleformat{\subsection}{\normalsize\itshape}{\Alph{subsection}.}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{1.3ex plus .4ex minus .2ex}{0.4ex plus .1ex}
+
+% ---- captions: TABLE I above in small capitals, Fig. 1 below ----------------------------------
+\renewcommand{\thetable}{\Roman{table}}
+\DeclareCaptionLabelFormat{upper}{\MakeUppercase{#1}~#2}
+\captionsetup[table]{labelformat=upper, labelsep=newline, font={footnotesize,sc}, justification=centering,
+                     skip=3pt}
+\captionsetup[figure]{name=Fig., labelsep=period, font=footnotesize, justification=justified,
+                      singlelinecheck=true, skip=4pt}
+\captionsetup[lstlisting]{labelsep=period, font=footnotesize, justification=justified,
+                          singlelinecheck=false, skip=3pt}
+
+% ---- listings ----------------------------------------------------------------------------------------
+\lstset{
+  basicstyle=\ttfamily\footnotesize, columns=fullflexible, keepspaces=true,
+  backgroundcolor=\color{black!4}, frame=single, rulecolor=\color{black!22}, framesep=3pt,
+  xleftmargin=3.5pt, xrightmargin=3.5pt, aboveskip=6pt, belowskip=4pt,
+  showstringspaces=false, upquote=true, breaklines=true, breakindent=1.5em,
+  commentstyle=\color{black!55}, numbers=none, float=!htb,
+}
+\lstdefinelanguage{gvjson}{morestring=[b]", morecomment=[l]{//}}
+
+% ---- floats, lists, small helpers ------------------------------------------------------------------
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.82}
+\renewcommand{\dblfloatpagefraction}{0.82}
+\setcounter{topnumber}{3}
+\setcounter{dbltopnumber}{2}
+\setlength{\textfloatsep}{10pt plus 2pt minus 3pt}
+\setlength{\dbltextfloatsep}{12pt plus 2pt minus 3pt}
+\setlength{\floatsep}{9pt plus 2pt minus 2pt}
+\setlist{nosep, leftmargin=1.2em}
+\setlist[enumerate]{leftmargin=1.5em}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\state}[1]{\texttt{#1}}
+\newcommand{\figref}[1]{Fig.~\ref{#1}}
+\newcommand{\tabref}[1]{Table~\ref{#1}}
+\newcommand{\secref}[1]{Section~\ref{#1}}
+\newcommand{\lstref}[1]{Listing~\ref{#1}}
+\newcommand{\KiB}{\,KiB}
+\newcommand{\MiB}{\,MiB}
+\newcommand{\GiB}{\,GiB}
+\renewcommand{\arraystretch}{1.12}
+
+\begin{document}
+\fussy
+\setlength{\emergencystretch}{1.2em}
+\raggedbottom
+
+\twocolumn[{%
+\begin{center}
+  {\fontsize{23}{27}\selectfont GhostVault: Encrypted File Storage Across\\[2pt]
+   Private GitHub Repositories\par}
+  \vspace{7pt}
+  {\large\itshape System Design and Implementation Report\par}
+  \vspace{4pt}
+  {\small GhostVault 1.0.0 \quad\textperiodcentered\quad October 2026\par}
+\end{center}
+\vspace{12pt}
+}]
+
+\input{sections/00-abstract}
+\input{sections/01-introduction}
+\input{sections/02-overview}
+\input{sections/03-principles}
+\input{sections/04-threats}
+\input{sections/05-crypto}
+\input{sections/06-state}
+\input{sections/07-ghost}
+\input{sections/08-restore}
+\input{sections/09-github}
+\input{sections/10-recovery}
+\input{sections/11-application}
+\input{sections/12-implementation}
+\input{sections/13-verification}
+\input{sections/14-performance}
+\input{sections/15-limitations}
+\input{sections/16-conclusion}
+\input{sections/99-references}
+
+\end{document}

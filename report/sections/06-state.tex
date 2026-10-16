@@ -1,0 +1,153 @@
+\section{Local State and the Journal}\label{sec:state}
+
+\subsection{The data folder}\label{sec:folder}
+All local state is in one folder, the per-user application-data folder of each system:
+\begin{itemize}
+\item Windows: \code{\%LOCALAPPDATA\%\textbackslash GhostVault}, which is local, not roaming, so the keys
+do not travel with a roaming profile;
+\item macOS: \path{~/Library/Application Support/GhostVault};
+\item Linux: \path{$XDG_DATA_HOME/ghostvault}, or \path{~/.local/share/ghostvault}.
+\end{itemize}
+\lstref{lst:folder} shows its contents. On Linux and macOS, folders are created with mode 0700 and
+files with 0600; on Windows the folder inherits the per-user permissions of the profile.
+
+\begin{lstlisting}[caption={The data folder (modes on Linux and macOS).},label={lst:folder}]
+<data folder>/              0700
+  settings.json             0600  repositories, options
+  manifests/<file id>.json  0600  one record per ghost
+  thumbs/<file id>.gvp      0600  encrypted previews
+  logs/ghostvault.log       0600  file ids, never names
+  damaged/                  0700  unreadable files, kept
+  vault.lock                0600  held while running
+\end{lstlisting}
+
+Nothing is staged on disk: chunks are encrypted and uploaded one at a time, and restored chunks go
+straight into the hidden output file. Nothing in the folder records the folder's own location, so it
+can be moved or restored from a backup. While GhostVault runs, it holds an exclusive lock on
+\code{vault.lock} (\code{flock}, or \code{msvcrt.locking} on Windows); the operating system releases
+it when the process ends, however it ends, and a second instance on the same folder is refused.
+
+\subsection{Records}\label{sec:records}
+Each ghost is one JSON record, \lstref{lst:record}, named after its random 128-bit file id. A record
+is validated every time it is read: its shape, its version (5 or 6), and every value used to build a
+request, choose a path or delete something must have the only form GhostVault creates: owner and
+repository names, the base folder, chunk and preview paths, blob ids, nonces, the key length, the
+cipher and associated-data label, the name of a temporary restore file and of the hidden name the
+original is moved to, each beside its file. Records of format 6 must also have a chunk count that
+matches their size. A record that fails is shown as damaged and left untouched; nothing acts on it,
+and it affects no other ghost.
+
+\begin{lstlisting}[language=gvjson,caption={A record of a ghost with ten chunks, abridged; the
+values are from a real run against the simulated GitHub.},label={lst:record}]
+{"format": "ghostvault-manifest", "version": 6,
+ "fileId": "5ada355b920792c5ba14be70737ffc5a",
+ "state": "ready", "displayName": "harbour.png",
+ "original": {"name": "harbour.png", "size": 4860280,
+   "path": "...", "sha256": "f9b10964...932b14",
+   "mode": 420, "atimeNs": ..., "mtimeNs": ...,
+   "identity": {"dev": ..., "ino": ..., "size": 4860280,
+                "mtime_ns": ...}},
+ "crypto": {"cipher": "AES-256-GCM",
+            "key": "owrw+KXo...6508=",
+            "aad": "ghostvault/v6"},
+ "chunkSize": 524288, "padding": true,
+ "chunks": [{"index": 0, "repo": "d825332f29363c8d",
+   "path": "ghostvault/78/7e34107f...6b144794.bin",
+   "plainSize": 524288, "nonce": "VG7sZuNj9KNv8fQb",
+   "cipherSha256": "27b4368a...4e85e8",
+   "blobSha": "b295c74a...616173be52d5"}, ...],
+ "repos": {"d825332f29363c8d": {"owner": "alice",
+   "repo": "vault1", "baseFolder": "ghostvault",
+   "committed": true, "deleted": false}, ...},
+ "preview": {"enabled": true, "remote": {"repo": ...,
+   "path": "ghostvault/9c/962063f7...7c65b415.bin",
+   "blobSha": ..., "committed": true}},
+ "placement": {"strategy": "distributed",
+               "eligible": 2, "repositories": 2},
+ "notes": [], "restore": null}
+\end{lstlisting}
+
+\subsection{Durable writes}\label{sec:durable}
+Every state file is written the same way: a new owner-only file is created beside the target
+(\code{O\_EXCL}, \code{O\_NOFOLLOW}), written and flushed to disk, renamed over the old file, and
+then the folder is flushed. After a crash the file holds either its old or its new content; a
+leftover temporary file is removed at the next start. \tabref{tab:durable} lists what each step
+means on each system. Flushing a file on macOS uses \code{F\_FULLFSYNC}, because \code{fsync} there
+does not flush the drive's cache; Windows cannot flush a folder, so renames there are issued with
+\code{MOVEFILE\_WRITE\_THROUGH}, which returns only once the rename is on disk. All of this uses
+the standard library (\code{os}, \code{fcntl}, \code{msvcrt}, \code{ctypes}); no shell command is run.
+
+\begin{table}[t]
+\caption{Durability on each system}\label{tab:durable}
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{17mm}L{17mm}L{19mm}L{24mm}@{}}
+\toprule
+\textbf{Step} & \textbf{Linux} & \textbf{macOS} & \textbf{Windows} \\
+\midrule
+flush a file & \code{fsync} & \code{F\_FULLFSYNC} & \code{FlushFileBuffers} \\ \addlinespace[1.6pt]
+flush a folder & \code{fsync} & \code{F\_FULLFSYNC} & not possible; renames written through \\ \addlinespace[1.6pt]
+replace a file & \code{rename} & \code{rename} & \code{MoveFileExW}, replace and write-through \\ \addlinespace[1.6pt]
+publish without replacing & hard link & hard link & \code{MoveFileExW} without replace \\ \addlinespace[1.6pt]
+lock & \code{flock} & \code{flock} & \code{msvcrt.locking} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The journal}\label{sec:journal}
+A record's \code{state} is the journal of the operation in progress (\figref{fig:journal}). It is
+written durably before every step that changes something outside the data folder, and every
+irreversible step is preceded by a state that tells start-up recovery how to finish or undo it.
+The code marks each such point with a named checkpoint; the tests stop the process at every one of
+them (\secref{sec:verification}).
+
+\begin{figure}[t]
+\centering
+\input{figures/journal}
+\caption{The journal states of a record. Solid arrows are the normal course of an operation;
+dashed arrows are taken on failure. An interruption in any state is handled at the next start as
+\tabref{tab:recovery} describes.}
+\label{fig:journal}
+\end{figure}
+
+At every start GhostVault runs this recovery first, as an operation of its own during which the
+window accepts no other: it removes leftover temporary files, checks the settings, handles each
+record by its state (\tabref{tab:recovery}), and tells the user what it did. The rules
+for \state{stored} and \state{removing-original} are written so that a file found at the original's
+path is never called the original unless its identity is the uploaded file's: a new file saved under
+the same name is not the user's original, and saying so could lead the user to delete it.
+
+\begin{table}[t]
+\caption{Start-up recovery by journal state}\label{tab:recovery}
+\centering\footnotesize
+\begin{tabular}{@{}L{24mm}L{58mm}@{}}
+\toprule
+\textbf{State} & \textbf{What the next start does} \\
+\midrule
+\state{uploading} & the record becomes \state{deleting}: every path it lists is removed from the
+branches, then the record; the original was never touched \\ \addlinespace[1.6pt]
+\state{deleting} & removal from GitHub is finished, then the record is removed \\ \addlinespace[1.6pt]
+\state{stored} & the ghost is complete; the original is kept, and the user is told whether the
+file at its path is still the original \\ \addlinespace[1.6pt]
+\state{removing-original} & if the file under the hidden name exists, it is checked again and
+deleted if it is the uploaded file, put back otherwise; the ghost is complete either way \\ \addlinespace[1.6pt]
+\state{restoring} & the temporary file is removed; if the final file is in place and matches the
+original's SHA-256, it is adopted and clean-up continues, otherwise the ghost is \state{ready}
+again \\ \addlinespace[1.6pt]
+\state{cleanup} & removal from GitHub is retried; while GitHub cannot be reached it stays pending,
+with a Retry button \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\emph{Unreferenced blobs.} If ghosting is interrupted after some chunks were uploaded but before
+they were committed, those blobs exist in the repository's object store without being on any
+branch. They are encrypted and listed nowhere, and Git removes unreferenced objects eventually, on
+GitHub's schedule. GhostVault cannot delete a blob directly: the Git Data API has no such
+operation.
+
+\subsection{Damage}
+An unreadable record is shown as damaged and never overwritten, and it pauses backups until the
+user resolves it (\secref{sec:incomplete}). An unreadable settings file is moved into
+\code{damaged/} and GhostVault starts with empty settings; ghosts are unaffected, because every
+record names its own repositories.

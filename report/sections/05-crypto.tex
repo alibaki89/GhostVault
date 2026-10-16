@@ -1,0 +1,147 @@
+\section{Cryptographic Design}\label{sec:crypto}
+
+GhostVault defines no cryptographic algorithm of its own. It uses AES-256-GCM~\cite{nist-gcm},
+HKDF-SHA256~\cite{rfc5869}, Argon2id~\cite{rfc9106} (or scrypt~\cite{rfc7914} where the
+\code{cryptography} build has no Argon2id) and HMAC-SHA256~\cite{rfc2104}, all from the
+\code{cryptography} library~\cite{pyca}, and SHA-256 for content checks.
+
+\begin{figure*}[t]
+\centering
+\input{figures/keys}
+\caption{The keys. (a) Each ghost has its own random key; its preview key is derived from it, so
+chunks and preview never share a key. (b) A recovery bundle holds the records, with their keys,
+encrypted under a key derived from a passphrase or a generated recovery key; each bundle key has
+its own random salt. Black: secrets that are generated or chosen, never derived.}
+\label{fig:keys}
+\end{figure*}
+
+\subsection{Keys}\label{sec:keys}
+\figref{fig:keys} shows the keys and \tabref{tab:sizes} their sizes. A \emph{file key} is 32 bytes
+from the operating system's random source (Python's \path{secrets.token_bytes}), one per ghost, stored in
+its record. It encrypts that ghost's chunks and nothing else. The \emph{preview key} is
+HKDF-SHA256 of the file key with the label \path{ghostvault/v6/subkey/preview}; it is derived when
+needed and never stored. The keys of recovery bundles are derived with Argon2id from a passphrase
+or a recovery key, each with its own random 16-byte salt (\secref{sec:recovery}).
+
+Keys at rest are plain base64 in the records and settings, in files only the user can read. This is
+deliberate. Wrapping them with a key kept in the operating system's keychain would protect nothing
+against malware running as the user, which can read the keychain too, and losing that one keychain
+entry would lose every ghost at once. The protection for a stolen computer is full-disk encryption;
+backups of the data folder contain the keys and must be protected like it.
+
+\subsection{Chunks}\label{sec:chunks}
+A file is read in chunks of 512\,KiB of plaintext; a file of $s$ bytes has $\lceil s/524\,288
+\rceil$ chunks, so an empty file has none. Each chunk is encrypted on its own with AES-256-GCM
+under the file key and a fresh random 96-bit nonce; the ciphertext is the plaintext followed by a
+16-byte tag. The nonce stays in the record; GitHub stores only the ciphertext.
+
+Each chunk's associated data (\lstref{lst:aad}) names the file, the chunk's position, the number of
+chunks, the file's exact size and whether the last chunk is padded. A chunk therefore cannot be
+moved into another file, to another position, or into a file with more or fewer chunks without
+failing authentication, and the size and padding flag in a record cannot be changed without every
+chunk failing. The length used to strip the padding is thus authenticated, not taken on trust from
+the record.
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,caption={Associated data of a chunk;
+\code{p} or \code{u} says whether the last chunk is padded.},label={lst:aad}]
+ghostvault/v6/<file id>/<index>/<count>/<size>/<p|u>
+
+ghostvault/v6/5ada355b920792c5ba14be70737ffc5a/9/10/4860280/p
+\end{lstlisting}
+
+Nonces are random, and every encryption under a key uses a fresh one. With random 96-bit nonces,
+NIST limits a key to $2^{32}$ encryptions~\cite[Sec.~8.3]{nist-gcm}. A file key is used once per
+chunk of one file (a file of 1\,TiB has $2^{21}$ chunks), a preview key once or a few times, a
+recovery-file key once, and the backup key once per backup version, so every key stays many orders of magnitude
+below that limit.
+
+Records written by earlier versions of GhostVault (record format 5) bind the file, the position and
+the count, as \path{ghostvault/v4/<file id>/<index>/<count>}. They are still read, and restored
+with that associated data; new records always use the form above.
+
+\subsection{Padding}\label{sec:padding}
+By default (\emph{Enhanced privacy} in the window), the last chunk's plaintext is filled with
+random bytes up to the full 512\,KiB before it is encrypted, so every chunk of a ghost has the same
+ciphertext size, 524\,304 bytes. No chunk is ever added: a file whose size is a multiple of 512\,KiB
+is unchanged, and an empty file has no chunks. Restoring decrypts each chunk, checks its length,
+and keeps exactly the recorded size. Each ghost records whether it was padded, and \emph{Storage
+efficiency} turns padding off for new ghosts. \tabref{tab:padding} shows what GitHub stores.
+
+\begin{table}[t]
+\caption{Bytes of chunk ciphertext stored on GitHub}\label{tab:padding}
+\centering\footnotesize
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+\textbf{File size (bytes)} & \textbf{Chunks} & \textbf{Padded} & \textbf{Not padded} \\
+\midrule
+0 & 0 & 0 & 0 \\
+1 & 1 & 524\,304 & 17 \\
+102\,400 & 1 & 524\,304 & 102\,416 \\
+524\,288 & 1 & 524\,304 & 524\,304 \\
+524\,289 & 2 & 1\,048\,608 & 524\,321 \\
+5\,242\,881 & 11 & 5\,767\,344 & 5\,243\,057 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}\raggedright\scriptsize Measured with \code{tools/measure.py}; each chunk adds a 16-byte
+tag. Padded, every chunk is 524\,304 bytes.
+\end{table}
+
+Padding hides a file's exact size, not its approximate size: GitHub still sees the chunk count,
+which gives the size to within 512\,KiB. The cost is at most 512\,KiB per ghost on GitHub.
+
+\subsection{Checks on restore}\label{sec:checks}
+A restore accepts a chunk only after five checks, all done before anything is written under the
+file's final name:
+\begin{enumerate}
+\item the Git blob id is recomputed from the downloaded bytes and must equal the recorded id;
+\item the SHA-256 of the ciphertext must equal the one recorded at upload;
+\item the GCM tag must verify, with the associated data above;
+\item for records of format 6, the plaintext length must be exactly what the recorded size and
+padding imply;
+\item after the last chunk, the whole file's SHA-256 must equal the original's.
+\end{enumerate}
+Git's ids are SHA-1 hashes. GhostVault uses them to name and find what GitHub stores and to detect
+damage, not to resist an adversary: integrity against an adversary rests on the GCM tag and the
+SHA-256 checks.
+
+\subsection{Previews}\label{sec:previews}
+For an image (JPEG, PNG, GIF, WebP or BMP, recognised by extension and decoded only in those
+formats), GhostVault makes a preview of at most 200\,$\times$\,150 pixels, encoded as JPEG in at
+most 32\,KiB\,$-$\,4 bytes. Decoding is bounded: images over 50 megapixels are refused from their
+header, before any pixel is read, and JPEGs are decoded at reduced scale. The preview is encrypted
+as soon as it exists and is never written in plaintext:
+\begin{align*}
+  \mathit{blob} = n \,\|\, \mathrm{AES\text{-}GCM}_{k_p}\bigl(&n,\; \ell \,\|\, \mathit{image} \,\|\,
+  \mathit{pad},\\ &\text{``}\texttt{ghostvault/v6/preview/}\mathit{id}\text{''}\bigr),
+\end{align*}
+where $k_p$ is the preview key, $n$ a fresh 12-byte nonce, $\ell$ the image length in four bytes,
+and the random padding brings the plaintext to 32\,KiB. Every preview blob therefore has the same
+size, 32\,KiB plus 28 bytes. It is uploaded under its own random path to the repository of the
+ghost's first chunk, committed with the chunks, and kept in a local cache in the same encrypted
+form; it is decrypted in memory to be shown. Hiding a ghost's preview deletes only the local copy.
+A preview reveals that a ghost has one, and nothing else.
+
+\begin{table}[t]
+\caption{Fixed sizes and parameters}\label{tab:sizes}
+\centering\footnotesize
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{What} & \textbf{Value} \\
+\midrule
+file key, preview key, bundle keys & 32 bytes \\
+nonce, for every encryption & 12 bytes \\
+authentication tag & 16 bytes \\
+chunk plaintext & 524\,288 bytes \\
+chunk ciphertext, padded & 524\,304 bytes \\
+preview blob & 32\,796 bytes \\
+file id & 16 random bytes (32 hex) \\
+chunk path & \code{ghostvault/<2 hex>/<32 hex>.bin} \\
+Argon2id: memory, passes, lanes & 256\,MiB, 3, 4 \\
+scrypt fallback: $N$, $r$, $p$ & $2^{17}$, 8, 1 \\
+bundle salt & 16 bytes \\
+bundle padding unit & 64\,KiB \\
+recovery key & 130 bits + 2 check characters \\
+\bottomrule
+\end{tabular}
+\end{table}

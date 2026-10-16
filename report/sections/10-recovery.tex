@@ -1,0 +1,113 @@
+\section{Recovery}\label{sec:recovery}
+
+A ghost's key and chunk map exist only in its record. Losing the data folder, or the computer,
+would therefore lose every ghost, although its chunks are still on GitHub. GhostVault offers two
+ways to keep the records elsewhere, both encrypted in one format: \emph{recovery files}, written on
+request to a place the user chooses, and the \emph{repository backup}, kept up to date automatically
+in the repositories if the user turns it on. \tabref{tab:loss} summarises what each kind of loss
+costs.
+
+\begin{table}[t]
+\caption{What a loss costs}\label{tab:loss}
+\centering\footnotesize
+\begin{tabular}{@{}L{19mm}L{30mm}L{30mm}@{}}
+\toprule
+\textbf{Lost} & \textbf{Without a bundle} & \textbf{With a recovery file or the backup} \\
+\midrule
+one record & that ghost & restored from the bundle \\ \addlinespace[1.6pt]
+the data folder or the computer & every ghost & every ghost in the bundle \\ \addlinespace[1.6pt]
+the settings & repositories must be added again; ghosts unaffected & the same \\ \addlinespace[1.6pt]
+a token & nothing: enter a new one & the same \\ \addlinespace[1.6pt]
+a repository & every ghost with a chunk in it & the same: a bundle holds keys, not data \\ \addlinespace[1.6pt]
+the passphrase or recovery key & --- & that bundle, for good: there is no reset \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The bundle format}
+A bundle (\lstref{lst:bundle}) is a fixed first line, a header of one line of JSON, and the
+ciphertext. The payload holds every complete ghost's record, normalised to \state{ready}, and the
+repository list without tokens; it holds no previews, log or journal notes. Ghosts whose remote copy
+is incomplete or being removed are left out. The key is derived from the secret with Argon2id,
+256\,MiB, 3 passes and 4 lanes: the second recommended setting of RFC~9106~\cite{rfc9106} with four
+times its memory. Where the \code{cryptography} build has no Argon2id, scrypt with $N=2^{17}$, $r=8$,
+$p=1$ is used. The parameters are read from the header and capped (at most 2\,GiB, 20 passes,
+16 lanes), so a malicious file cannot make GhostVault allocate unbounded memory, and the whole header
+is authenticated as associated data. The plaintext is padded to a multiple of 64\,KiB, so a bundle's
+size shows roughly, not exactly, how many ghosts it holds.
+
+\begin{lstlisting}[caption={A recovery bundle; the header is shown wrapped.},label={lst:bundle}]
+GHOSTVAULT-RECOVERY\n
+{"check":"<8-byte HMAC, base64>","cipher":"AES-256-GCM",
+ "format":"ghostvault-recovery","kdf":{"name":"argon2id",
+ "iterations":3,"lanes":4,"memoryKiB":262144,
+ "salt":"<16 bytes, base64>"},"kind":"file",
+ "nonce":"<12 bytes, base64>","version":1}\n
+AES-256-GCM(key, nonce,
+  length (8 bytes) || payload JSON
+    || random padding to a multiple of 64 KiB,
+  associated data = the two lines above)
+\end{lstlisting}
+
+The \code{check} value is the first eight bytes of HMAC-SHA256 under the derived key. It lets
+GhostVault tell a wrong passphrase from a damaged file, and lets an attacker test a guess no faster
+than decrypting would. Nothing can open a bundle whose secret is lost.
+
+\subsection{Recovery files}
+A recovery file is protected by a passphrase of at least 12 characters, or by one GhostVault
+generates. It is written under a temporary name in the chosen folder, flushed, read back and
+decrypted to check it, and only then given its name, without replacing an existing file unless the
+user confirmed. Importing one validates every record exactly like a local one before anything is
+written, so a bundle with one malformed record imports nothing. Repositories not yet configured are
+added without a token and marked as needing one. A ghost already present is skipped, and one with the
+same id but a different record is reported and not imported, so local records are never replaced.
+GhostVault tracks which ghosts are in any recovery file, and Settings shows how many are in none.
+
+\subsection{The repository backup}
+Turning the backup on generates a \emph{recovery key}: 26 characters drawn at random from Crockford's
+base32 alphabet~\cite{crockford} (130 bits) and two check characters that catch typing errors, shown
+in seven groups of four. It is shown once and stored nowhere; the user writes it down. GhostVault
+derives the backup key from it once, with Argon2id and a random salt, and keeps the derived key in its
+settings, so later backups need no slow derivation. After every change (a ghost added or removed,
+renamed, a preview hidden or shown, an import) it writes a new version of the bundle, of kind
+\code{repository}, to \code{ghostvault/recovery/backup.gvrb} in every usable repository.
+
+The bookkeeping survives crashes because nothing about it is kept only in memory. Each version's
+sequence number is reserved durably before anything is sent. A version is recorded as verified, with
+a digest of its content and the ids it holds, only after the branch of each repository it was
+written to has been read back and holds exactly the uploaded bytes; a repository that missed it
+keeps the backup due. Whether a backup is \emph{due} is computed by comparing that digest with the
+current records, so a crash before, during or after a push leaves it due, and the next operation or
+start pushes it. A ghost counts as protected by the backup only if it is in the
+last verified version. A failed backup is shown in Settings and retried; it never fails the change
+that caused it. On a new computer the user adds the repositories with tokens and enters the recovery
+key; GhostVault takes the version with the highest sequence number found in any repository.
+
+The backup has a cost. Anyone who can read the repositories holds the ciphertext and, in the
+backup, the encrypted keys, so their safety rests entirely on the recovery key. And Git's history
+keeps every earlier version: turning the backup off, or restoring a ghost, removes the current file
+from the branch, not the old versions. Whoever later obtains the recovery key and the repository's
+history can decrypt the keys of ghosts removed long ago, whose chunks are also still in that history.
+
+\subsection{Incomplete records}\label{sec:incomplete}
+A new backup replaces the previous one. If it left out a ghost because that ghost's record could not
+be read, the good version on GitHub would be replaced by one without that ghost's key: the encrypted
+chunks would remain, and no current backup could open them. GhostVault therefore lets a backup leave a
+ghost out only if GhostVault itself removed it, and it records the ids of the ghosts it removes before
+deleting their records. Then:
+\begin{itemize}
+\item a record that cannot be read, or a record that a backup or recovery file holds but that
+GhostVault never removed, stops every backup and every recovery-file export, and the last verified
+backup stays as it is;
+\item before a repository's backup is replaced, the current one is read and decrypted; if it holds
+ghosts this computer does not know (another computer, an older copy of the data folder), it is not
+replaced in any repository, and one this computer cannot open is not replaced either, unless the user
+chose to replace it when turning the backup on;
+\item the user resolves the situation explicitly: by repairing the records from the backup or a
+recovery file (an unreadable record is moved to \code{damaged/}, never deleted), or by setting them
+aside, in which case the backup carries their last good records forward.
+\end{itemize}
+Ghosting and restoring go on working meanwhile; only backups and exports pause, and the window says
+why. One case remains open: a repository that cannot be read when a new version is written is not
+compared, so if it alone held a newer version made elsewhere, the version written to the other
+repositories can supersede it on a new computer.

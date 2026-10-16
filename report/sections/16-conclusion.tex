@@ -1,0 +1,23 @@
+\section{Conclusion}\label{sec:conclusion}
+
+GhostVault keeps files in private GitHub repositories without trusting GitHub with them. The
+cryptography is conventional: a random key per file, AES-256-GCM per chunk, associated data that binds
+each chunk to its file, position, count, size and padding, and keys for recovery bundles derived with
+Argon2id. Most of the system is about something else: deleting the user's data only when another copy
+has been shown to exist. The original goes only after the branch has been read back and a sample
+downloaded, and after the file has been moved aside and checked again; the remote copy goes only after
+the restored file is on disk under its final name. Every step that changes something outside the
+computer is journaled first, every reply that matters is checked against what the repository shows,
+and every record is validated before anything acts on it.
+
+The protection has clear edges. Cryptography protects the content of files from everyone who can read
+the repositories; GitHub's access control decides who those readers are; and only GitHub keeps the data
+available, which is why a ghost should never be the only copy of a file that cannot be lost. Within
+those edges, the system was checked by an automated suite covering every journal checkpoint, by
+randomised runs in which 1\,273 simulated crashes and 7\,736 network faults lost no file, and by
+measurements showing that the limit on its speed is GitHub's pacing, not its own work.
+
+\section*{Availability}
+GhostVault is open source under the MIT license. The source, its documentation, the test suite, the
+measurement and stress tools, and this report's \LaTeX{} source and data are in the project's
+repository.

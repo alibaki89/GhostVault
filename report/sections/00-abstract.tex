@@ -1,0 +1,23 @@
+\noindent{\small\bfseries\textit{Abstract}---GhostVault is a desktop application that moves files
+off a computer into private GitHub repositories that the user owns, and brings them back on
+request. A file is split into 512\,KiB chunks, and each chunk is encrypted on the computer with
+AES-256-GCM under a random key used for that file alone; its associated data binds the chunk to
+the file, its position, the number of chunks, the file's exact size and whether it is padded. The
+chunks are stored as Git blobs, with one commit per repository. The original is deleted only after
+each repository's branch has been read back and lists every chunk under the content id computed
+before the upload, a sample of chunks has been downloaded and compared, and the file on disk has
+been shown, once more, to be the one that was uploaded. Every step that changes something outside
+the application is preceded by a durable journal entry, so an interruption at any point is
+finished or undone at the next start. Encrypted recovery files and an optional encrypted backup
+kept in the repositories protect against losing the computer. This report describes the system:
+its parts and formats, its operations and their failure handling, and where its protection ends,
+separating what the cryptography guarantees from what depends on GitHub's access control and on
+GitHub keeping the data. It also reports how the system was checked: an automated suite of 663
+tests, a randomised run of 3\,200 operations with 1\,273 simulated crashes and 7\,736 injected
+network faults in which no file was lost, and measurements of its own costs.\par}
+
+\vspace{6pt}
+\noindent{\small\bfseries\textit{Index Terms}---Encrypted storage, authenticated encryption,
+AES-GCM, Git object storage, GitHub, crash consistency, write-ahead journaling, desktop
+application.\par}
+\vspace{4pt}

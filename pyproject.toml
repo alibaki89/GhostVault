@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghostvault"
+version = "1.0.0"
+description = "Encrypt files locally, scatter the encrypted chunks across your private GitHub repositories, and restore them on demand."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "GhostVault contributors" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security :: Cryptography",
+    "Topic :: System :: Archiving",
+]
+# Lower bounds only: they are the oldest versions GhostVault relies on.
+#   cryptography 44: AES-256-GCM, HKDF-SHA256 and Argon2id (recovery files); wheels for all
+#                    three systems
+#   Pillow 10.1:     default font can draw non-Latin-1 names
+#   truststore 0.9:  verify GitHub's certificate with the operating system's trust store
+#                    (see ghostvault/tls.py)
+#   keyring 25:      the operating system's keychain (Windows Credential Manager, macOS
+#                    Keychain, Secret Service on Linux); see ghostvault/credentials.py
+dependencies = [
+    "cryptography>=44",
+    "Pillow>=10.1",
+    "truststore>=0.9",
+    "keyring>=25",
+]
+
+[project.urls]
+Homepage = "https://github.com/alibaki89/GhostVault"
+Documentation = "https://github.com/alibaki89/GhostVault#readme"
+Issues = "https://github.com/alibaki89/GhostVault/issues"
+Changelog = "https://github.com/alibaki89/GhostVault/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+# A console script, not a gui-script: it is started from a terminal, and on Windows a
+# gui-script would hide --version output and start-up errors. The standalone builds
+# (packaging/) add a windowed GhostVault.exe for the Start menu.
+[project.scripts]
+ghostvault = "ghostvault.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ghostvault.gui" = ["icon.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+xfail_strict = true
+markers = [
+    "gui: needs a working Tk display (skipped when none is available)",
+    "integration: talks to real GitHub; runs only with GV_IT_REPOS and GV_IT_TOKEN set",
+    "real_kdf: uses the real (slow, memory-hard) recovery-file key derivation parameters",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-include = ["packaging/pyinstaller/*.spec"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+ignore = ["E501"]

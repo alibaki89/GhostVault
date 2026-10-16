@@ -1,0 +1,55 @@
+\section{System Overview}\label{sec:overview}
+
+\begin{figure*}[t]
+\centering
+\input{figures/architecture}
+\caption{The parts of GhostVault. Everything inside the frame runs on the user's computer;
+GhostVault has no server of its own. The core (\code{Vault} and the modules below it) never imports
+the user interface. Only the GitHub layer talks to the network, and only to \code{api.github.com}.}
+\label{fig:architecture}
+\end{figure*}
+
+\subsection{The parts}
+GhostVault has three parts, shown in \figref{fig:architecture}.
+
+\emph{The application} is one Python package, \code{ghostvault}. A Tk window is the normal way to
+use it; a command line offers recovery operations and a self-check. It runs from the Python
+package or as a standalone application with its own Python inside (\secref{sec:builds}).
+
+\emph{The data folder} is a per-user folder that only the user can read. It holds one record per
+ghost, the settings, an encrypted cache of image previews and a log. Its location follows each
+system's convention (\secref{sec:folder}).
+
+\emph{The repositories} are one or more private GitHub repositories, each with a token that can
+write to it. GhostVault reaches them through GitHub's REST API over HTTPS and stores its objects in
+one folder of each, \code{ghostvault/}. It has no server, account or service of its own: if
+GhostVault's authors disappeared, every ghost would remain restorable with the application, the
+data folder and the repositories.
+
+\subsection{What a ghost is}
+A ghost is two things: its record in the data folder, and its chunks on GitHub. The record
+(\lstref{lst:record}) holds the file's key; for every chunk, the repository it went to, its
+random path, its nonce and the ids that identify its ciphertext; the original's name, location,
+size, SHA-256, permissions and timestamps; and the journal state of the operation in progress.
+The chunks are encrypted, by default padded to one size, and named at random.
+
+The record is the only map from a ghost to its chunks and the only copy of its key. The gallery
+in the window is simply the set of readable records; there is no separate index that could
+disagree with them. Losing a record without a recovery bundle (\secref{sec:recovery}) loses the
+ghost, whatever GitHub still holds.
+
+\subsection{The life of a file}
+\figref{fig:lifecycle} shows the two operations step by step. Ghosting plans the upload, records
+the plan, uploads and commits the chunks, verifies them on GitHub, and only then removes the
+original. Restoring records where the file will go, downloads and checks every chunk, writes and
+publishes the file, and only then removes the chunks from GitHub. The grey tags are the journal
+states written to disk before the step they precede; they are what start-up recovery reads after
+an interruption (\secref{sec:journal}).
+
+\begin{figure}[t]
+\centering
+\input{figures/lifecycle}
+\caption{Ghosting and restoring a file. Each grey tag is the journal state written durably before
+the step below it. Nothing is deleted on either side until the other copy has been checked.}
+\label{fig:lifecycle}
+\end{figure}

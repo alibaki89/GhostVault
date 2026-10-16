@@ -1,0 +1,11 @@
+# The tools that build GhostVault's standalone applications (packaging/build.py), pinned so
+# that a release can be rebuilt with the same tools. GhostVault's own dependencies come from
+# pyproject.toml: install both into the build environment with
+#
+#     python -m pip install -r packaging/requirements-build.txt .
+#
+# Dependabot proposes updates to these pins (.github/dependabot.yml).
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+# Builds the wheel and the source distribution attached to a release.
+build==1.6.1

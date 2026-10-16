@@ -1,0 +1,37 @@
+{
+  "format": "ghostvault-manifest",
+  "version": 5,
+  "fileId": "c48158af5a2e87a01fcd4d33517478d0",
+  "state": "ready",
+  "createdAt": "2026-10-14T14:15:29+00:00",
+  "updatedAt": "2026-10-14T14:15:29+00:00",
+  "displayName": "empty.bin",
+  "original": {
+    "name": "empty.bin",
+    "extension": ".bin",
+    "path": "/tmp/tmp_mchhm75/empty.bin",
+    "size": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mode": 420,
+    "readonly": false,
+    "atimeNs": 1791987329571917193,
+    "mtimeNs": 1791987329571917193,
+    "identity": {
+      "dev": 65024,
+      "ino": 975086,
+      "size": 0,
+      "mtime_ns": 1791987329571917193
+    }
+  },
+  "crypto": {
+    "cipher": "AES-256-GCM",
+    "key": "UZ7FjADpBs+ubkkVRjwlve6H5tCMGqf2doWlITF9h+8=",
+    "aad": "ghostvault/v4"
+  },
+  "chunkSize": 1024,
+  "chunks": [],
+  "repos": {},
+  "originalRemoved": true,
+  "notes": [],
+  "restore": null
+}

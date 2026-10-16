@@ -1,0 +1,108 @@
+\section{Ghosting a File}\label{sec:ghost}
+
+\subsection{Accepting the original}
+GhostVault accepts only a regular file with a single name. Symbolic links, folders, devices, pipes
+and sockets are refused, and so are Windows symbolic links and mount points; a file with more than
+one hard link is refused because its data would stay on disk under the other name after
+GhostVault removed this one; and nothing inside the data folder can be ghosted. The file is opened
+once, without following links (\code{O\_NOFOLLOW}, \code{O\_NONBLOCK}), and the identity of the open
+file (device, inode, size, modification time) must match that of the path, so a file replaced at
+the moment of opening is refused.
+
+Everything is read through that one handle. The size recorded is the number of bytes actually read,
+and after the last chunk the file's size and modification time are compared with those at opening.
+If anything changed, nothing is committed and the partial upload is undone. On Windows the handle
+is opened with Python's default sharing, which does not include deletion, so while the upload runs
+Windows refuses to rename, replace or delete the original; writing into it remains possible and is
+detected.
+
+\subsection{The plan}
+Before anything is sent, GhostVault draws a random file id and a random key, decides where every
+chunk goes, and gives every chunk, and the preview if there is one, a random path of the form
+\code{ghostvault/<2 hex>/<32 hex>.bin}. Placement follows one of two strategies, chosen in Settings
+or for a single file:
+\begin{itemize}
+\item \emph{distributed} (the default): the eligible repositories are put in a random order and dealt
+chunks in turn, so each of $r$ repositories holds $\lfloor n/r\rfloor$ or $\lceil n/r\rceil$ of a file's
+$n$ chunks;
+\item \emph{consolidated}: every chunk goes to one eligible repository, chosen at random.
+\end{itemize}
+Neither strategy is redundancy: every chunk is stored once. A distributed file needs every
+repository that holds one of its chunks; a consolidated file needs one repository, which holds all
+of it. The record lists the repository of every chunk, and every later operation works from that
+list, so changing the setting never moves an existing ghost. With a single eligible repository,
+distributed placement cannot distribute; the record and the result message say so.
+
+The plan, the key and the original's identity are then written as the record, in state
+\state{uploading}, before the first request (\figref{fig:lifecycle}). From that moment every path the
+ghost could ever create on GitHub is known to the journal.
+
+\subsection{Upload and commit}
+Blobs can be created only in a repository that has a commit, so an empty repository is first
+initialised with an empty file, \code{ghostvault/.keep}. Then the file is streamed: each chunk is
+read, padded if it is the last, encrypted, hashed (SHA-256 and its Git blob id), and uploaded as a
+blob. Git derives a blob's id from the bytes it holds~\cite{git-objects}, so the id in GitHub's
+reply must equal the one computed locally. Only one chunk is held in memory at a time, and nothing is written to disk. A
+blob is part of no branch until a commit refers to it, so an interrupted upload leaves only
+unreferenced, encrypted objects.
+
+Once every chunk is uploaded, every blob id is written to the record, and only then is anything
+committed. Each repository gets one commit: a tree built on the branch's current tree with the new
+paths, a commit with the branch head as its parent and the message \code{Update}, and a branch
+update that must be a fast-forward. If a commit fails without a clear answer, GhostVault reads the
+branch to see what arrived before deciding (\secref{sec:uncertain}).
+
+\subsection{Verification before deletion}\label{sec:verify}
+Before the original may be deleted, three things must hold for every repository used:
+\begin{enumerate}
+\item each blob id was computed locally from the exact ciphertext, and GitHub answered the upload
+with the same id;
+\item the branch, read again from its head, maps every recorded path to exactly that blob id. Git ids
+are content hashes, so this establishes that the branch refers to exactly the uploaded bytes, for
+every chunk. A path that is not yet listed is looked for again after 1, 2 and 4\,s, because a read
+may be served by a replica that has not caught up; still missing, the ghost fails and is undone;
+\item the first chunk and one other chunk chosen at random are downloaded through the same request a
+restore uses, and their SHA-256 must equal the uploaded ciphertext's. This shows that the data can be
+read back with the current token, not only that it is referenced.
+\end{enumerate}
+Downloading every chunk again would double the transfer for little more assurance, since the second
+check already covers every chunk and GitHub checks object ids itself. What no check made at this
+time can rule out is damage or loss on GitHub's side afterwards. The record then moves to
+\state{stored}.
+
+\subsection{Removing the original}\label{sec:remove}
+Checking a path and then deleting the same path would leave a window in which another program, an
+editor saving by rename for example, replaces the file, and the newer file, which was never
+uploaded, would be deleted. GhostVault therefore moves the original aside before checking it
+(\lstref{lst:remove}). From the rename on, whatever appears under the original's name is never
+touched.
+
+\begin{lstlisting}[caption={Removing the original, once the record says \state{removing-original}.},
+label={lst:remove}]
+file at the path not the uploaded one?    keep it
+  (device, inode, size, mtime)
+hidden = ".<name>.<12 random hex>.ghostvault-removing"
+record hidden in the record (durably)
+rename path -> hidden          (atomic, same folder)
+open hidden    (Windows: no sharing but reading)
+  identity changed?            put back, keep
+  SHA-256 != uploaded?         put back, keep
+  size or mtime changed now?   put back, keep
+  delete     (POSIX: unlink, if hidden still names
+              the open file; Windows: by the handle)
+put back = publish under the old name, never
+  replacing; if taken: "<name> (kept by GhostVault)"
+\end{lstlisting}
+
+On Windows the hidden file is opened with read and delete access, sharing only reading, and deleted
+through that same handle (\code{SetFileInformationByHandle}): no other program can write to it,
+rename it or delete it while it is checked, and opening fails if one already has it open for
+writing, so the file deleted is exactly the file checked. Linux and macOS offer no way to delete a
+file only if nobody else has it open for writing. There, a program that already had the file open
+can still write to it in the moment between the last check and the deletion; GhostVault narrows
+that window by checking size and modification time once more just before it, and claims no more.
+
+If any step fails, the original is kept, or put back without replacing anything, and the ghost is
+completed as \state{ready} with the reason; Windows answers such as ``access denied'' or ``in use''
+are handled the same way. The ghost is complete either way: only the deletion of the original was
+given up.

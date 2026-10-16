@@ -1,0 +1,55 @@
+{
+  "format": "ghostvault-manifest",
+  "version": 5,
+  "fileId": "74b113169122405e9009bd6226b9bfbc",
+  "state": "ready",
+  "createdAt": "2026-10-14T14:15:29+00:00",
+  "updatedAt": "2026-10-14T14:15:29+00:00",
+  "displayName": "photo.png",
+  "original": {
+    "name": "photo.png",
+    "extension": ".png",
+    "path": "/tmp/tmp_mchhm75/photo.png",
+    "size": 140,
+    "sha256": "562d453b676b7dd1be42167a8a276a1a5356ee53d50afcf54aecac24eb900f10",
+    "mode": 420,
+    "readonly": false,
+    "atimeNs": 1791987329581305396,
+    "mtimeNs": 1791987329582819310,
+    "identity": {
+      "dev": 65024,
+      "ino": 975088,
+      "size": 140,
+      "mtime_ns": 1791987329582819310
+    }
+  },
+  "crypto": {
+    "cipher": "AES-256-GCM",
+    "key": "ICzHAdEXpvqmT1p7tuRchL/D0cpC9qK639EigLtpIP0=",
+    "aad": "ghostvault/v4"
+  },
+  "chunkSize": 1024,
+  "chunks": [
+    {
+      "index": 0,
+      "repo": "63df44ac5d57593e",
+      "path": "ghostvault/87/092c979112b525895cc2414750b8d5f5.bin",
+      "plainSize": 140,
+      "nonce": "fUSVhx3R7w6PsBZy",
+      "cipherSha256": "44d56f5ca0f453a582f76e36ac3c1eb8dfabd4d49ca0367f5b28f859ba07b0ad",
+      "blobSha": "e5a442771e8526b92aaf3c28098d1565b297001e"
+    }
+  ],
+  "repos": {
+    "63df44ac5d57593e": {
+      "owner": "alice",
+      "repo": "vault1",
+      "baseFolder": "ghostvault",
+      "committed": true,
+      "deleted": false
+    }
+  },
+  "originalRemoved": true,
+  "notes": [],
+  "restore": null
+}

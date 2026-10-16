@@ -1,0 +1,38 @@
+\section{Design Principles}\label{sec:principles}
+
+Eight rules shape the design; the rest of the report shows where each applies.
+
+\emph{Delete only what has a checked second copy.} The original is deleted only after GitHub's
+branch has been read back and shows every chunk under the id computed locally from its
+ciphertext, a sample has been downloaded and compared, and the file is still the one that was
+read. Remote chunks are deleted only after the restored file has been written, checked, flushed
+to disk and given its final name.
+
+\emph{Record the intent before acting.} Every step that changes something outside the data folder
+is preceded by a durable record of what is about to happen. The record names everything the step
+could create (chunk paths are chosen at random and recorded before the first upload), so nothing
+can appear on GitHub that GhostVault could not find and remove.
+
+\emph{A reply is not proof.} A reply can be lost, can come from a lagging replica, or can report
+success for a change that did not take effect. Wherever an outcome matters, GhostVault reads the
+branch again and acts on what it shows.
+
+\emph{GitHub stores; it is not trusted with secrets or integrity.} Only ciphertext under keys
+GitHub never sees is uploaded, and every byte that comes back is checked against its content id,
+its SHA-256 and its authentication tag before it is used.
+
+\emph{One random key per file.} File keys are random, never derived from a password, so a weak
+passphrase can weaken only the recovery bundle it protects, and a key that leaks exposes one file.
+
+\emph{Validate before acting.} A record is validated every time it is read. Every value used to
+build a request, choose a path or delete something must have the only form GhostVault itself
+creates, so a damaged or edited record cannot direct a deletion at anything that is not
+GhostVault's own.
+
+\emph{When in doubt, keep the data.} An unreadable record is reported and never overwritten; a
+damaged settings file is moved aside, never deleted; an original that changed is kept; a backup
+that fails never fails the operation that triggered it.
+
+\emph{Say what is true.} Status shown to the user reflects what was verified. A ghost counts as
+protected by the repository backup only once that version has been read back from GitHub, and a
+file whose original could not be deleted is reported as kept, with the reason.

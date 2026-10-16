@@ -1,0 +1,37 @@
+% Fig.: the steps of ghosting and restoring, and the journal state written before each step.
+\begin{tikzpicture}[
+  font=\scriptsize,
+  stage/.style={draw=black!65, fill=white, rounded corners=1pt, align=center, text width=37mm,
+               inner sep=2.2pt, minimum height=7mm,
+               execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  head/.style={stage, fill=black!78, draw=black!78, text=white, font=\scriptsize\bfseries, minimum height=5mm},
+  arr/.style={-{Latex[length=1.3mm,width=1mm]}, draw=black!60},
+  state/.style={fill=black!8, draw=black!30, rounded corners=4pt, inner sep=1.4pt, font=\scriptsize\ttfamily},
+]
+\matrix[row sep=5.6mm, column sep=5mm] (m) {
+  \node[head] (g0) {ghost}; &
+  \node[head] (r0) {restore}; \\
+  \node[stage] (g1) {accept the original: a regular file with one name, opened without following links}; &
+  \node[stage] (r1) {record the destination folder and a hidden temporary name}; \\
+  \node[stage] (g2) {record the plan: a random key, each chunk's repository and random path}; &
+  \node[stage] (r2) {download chunks in parallel; check each one, decrypt, write in order}; \\
+  \node[stage] (g3) {read, encrypt and upload each chunk as a blob that no commit refers to yet}; &
+  \node[stage] (r3) {check the whole file's SHA-256; restore its attributes; flush it to disk}; \\
+  \node[stage] (g4) {record every blob id, then make one commit per repository}; &
+  \node[stage] (r4) {publish it under its final name without replacing any file}; \\
+  \node[stage] (g5) {verify: every blob id is on the branch; read back the first chunk and one other per repository}; &
+  \node[stage] (r5) {delete the chunks, one commit per repository; confirm with a fresh listing}; \\[5mm]
+  \node[stage] (g6) {move the original aside, check it there, then delete it}; &
+  \node[stage] (r6) {forget the record}; \\
+};
+\foreach \a/\b in {g0/g1, g1/g2, g2/g3, g3/g4, g4/g5, g5/g6, r0/r1, r1/r2, r2/r3, r3/r4, r4/r5, r5/r6}
+  \draw[arr] (\a) -- (\b);
+% journal states, written durably before the step below them (drawn on the arrow)
+\node[state] at ($(g2.south)!0.5!(g3.north)$) {uploading};
+\node[state] at ($(g5.south)!0.3!(g6.north)$) {stored};
+\node[state] at ($(g5.south)!0.72!(g6.north)$) {removing-original};
+\node[state, below=4mm of g6] (ready) {ready};
+\draw[arr] (g6) -- (ready);
+\node[state] at ($(r1.south)!0.5!(r2.north)$) {restoring};
+\node[state] at ($(r4.south)!0.5!(r5.north)$) {cleanup};
+\end{tikzpicture}

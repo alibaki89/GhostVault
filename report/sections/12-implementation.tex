@@ -1,0 +1,51 @@
+\section{Implementation}\label{sec:impl}
+
+GhostVault is written in Python and runs on Python 3.11 to 3.14 on Windows, macOS and Linux. It
+depends on four packages: \code{cryptography}~\cite{pyca} (AES-GCM, HKDF, Argon2id, scrypt),
+Pillow (previews), \code{truststore}~\cite{truststore} (the operating system's certificate store) and
+\code{keyring}~\cite{keyring} (the keychain). HTTP, JSON, threads, and all file-system and durability
+primitives come from the standard library; platform calls (\code{MoveFileExW},
+\code{SetFileInformationByHandle}, \code{renameat2}, \code{renamex\_np}) are made through
+\code{ctypes}. \tabref{tab:modules} lists the modules. The core never imports Tk; only \code{app.py}
+and the \code{gui} package do, and a test keeps it that way, so the core can be used and tested
+without a display.
+
+\begin{table}[t]
+\caption{Modules}\label{tab:modules}
+\centering\footnotesize
+\begin{tabular}{@{}L{17mm}L{63mm}@{}}
+\toprule
+\textbf{Module} & \textbf{Responsibility} \\
+\midrule
+\code{vault} & ghost, restore, clean-up, Reset, start-up recovery, rename, previews; the journal \\ \addlinespace[1.6pt]
+\code{backup} & recovery files, the repository backup, incomplete records \\ \addlinespace[1.6pt]
+\code{placement} & distributed and consolidated plans \\ \addlinespace[1.6pt]
+\code{recovery} & the bundle format, key derivation, recovery keys \\ \addlinespace[1.6pt]
+\code{crypto} & chunk and preview encryption, associated data, HKDF, hashes \\ \addlinespace[1.6pt]
+\code{files} & accepting, reading and removing the original \\ \addlinespace[1.6pt]
+\code{fsutil} & owner-only files, durable writes, publishing without replacing, the lock \\ \addlinespace[1.6pt]
+\code{store} & settings and records on disk, validation, moving damaged files aside \\ \addlinespace[1.6pt]
+\code{github} & transport, retries and pacing, repository checks, commits, listings \\ \addlinespace[1.6pt]
+\code{credentials} & the keychain, or tokens for the session \\ \addlinespace[1.6pt]
+\code{tls} & the TLS context (operating-system trust store) \\ \addlinespace[1.6pt]
+\code{thumbnails} & bounded decoding and encoding of previews; placeholder tiles \\ \addlinespace[1.6pt]
+\code{app}, \code{gui} & command line, self-check, start-up; the Tk interface \\ \addlinespace[1.6pt]
+others & paths, errors, naming, logging, constants \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\figref{fig:size} shows the size of each component and of the tests that exercise it. The
+application is 28 files and 7\,161 lines that are neither blank nor comments; the release tooling
+adds 1\,473 lines (build script, PyInstaller specification, Inno Setup script and the Linux install
+scripts), and the tests 7\,851 lines in 29 files, of which 705 are shared support code, chiefly the
+simulated GitHub.
+
+\begin{figure}[t]
+\centering
+\input{figures/code-size}
+\caption{Lines of code per component, and of the tests assigned to the component they mainly
+exercise. Counted by \code{report/data/code\_size.py}: lines that are neither blank nor comments;
+docstrings count.}
+\label{fig:size}
+\end{figure}

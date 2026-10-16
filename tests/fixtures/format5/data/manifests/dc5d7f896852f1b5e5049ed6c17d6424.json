@@ -1,0 +1,98 @@
+{
+  "format": "ghostvault-manifest",
+  "version": 5,
+  "fileId": "dc5d7f896852f1b5e5049ed6c17d6424",
+  "state": "ready",
+  "createdAt": "2026-10-14T14:15:29+00:00",
+  "updatedAt": "2026-10-14T14:15:29+00:00",
+  "displayName": "notes.txt",
+  "original": {
+    "name": "notes.txt",
+    "extension": ".txt",
+    "path": "/tmp/tmp_mchhm75/notes.txt",
+    "size": 5000,
+    "sha256": "eb0e917aabcdc2b8b4614dcc3643f87214f32284654e132826a5f5ed54ff7c98",
+    "mode": 420,
+    "readonly": false,
+    "atimeNs": 1791987329473110136,
+    "mtimeNs": 1791987329477110137,
+    "identity": {
+      "dev": 65024,
+      "ino": 975083,
+      "size": 5000,
+      "mtime_ns": 1791987329477110137
+    }
+  },
+  "crypto": {
+    "cipher": "AES-256-GCM",
+    "key": "ufFw5nRq2bw12vTCg4/y2xFHVzgGFsbeUgMZFIxgOzU=",
+    "aad": "ghostvault/v4"
+  },
+  "chunkSize": 1024,
+  "chunks": [
+    {
+      "index": 0,
+      "repo": "63df44ac5d57593e",
+      "path": "ghostvault/fd/74a22ba179ca48a017602fa23d87694b.bin",
+      "plainSize": 1024,
+      "nonce": "cBaZEeH35OzVbukv",
+      "cipherSha256": "b64c0885b66624bb3d626b05775cf420fb3dfd2cc1bb2feb26793b023c488356",
+      "blobSha": "12bd6b467919ad6be4c0a109d97296d5846501bf"
+    },
+    {
+      "index": 1,
+      "repo": "86585184fd24fea5",
+      "path": "ghostvault/f8/fd718ddabaa282a57156625226199560.bin",
+      "plainSize": 1024,
+      "nonce": "YFqBKMx8osC3br6b",
+      "cipherSha256": "ed26ee64317e7d2ff5dce5f1f444222365df7b38ec15e3d2d19cc20763ae312a",
+      "blobSha": "b11a51ff6fd615180c735a374c19014424d37d49"
+    },
+    {
+      "index": 2,
+      "repo": "63df44ac5d57593e",
+      "path": "ghostvault/f8/c61f1495977dd49f19253ade72714f52.bin",
+      "plainSize": 1024,
+      "nonce": "3kP4ojAZJOWE9pW6",
+      "cipherSha256": "bed18f40b071b6767364c8c10235421c9c5956580fb26ada767cc4a635576f15",
+      "blobSha": "cd41be1a72a6a03583c611e146d8095bef00e78a"
+    },
+    {
+      "index": 3,
+      "repo": "63df44ac5d57593e",
+      "path": "ghostvault/d3/26472ab0ba328f5493d3e77c3383666e.bin",
+      "plainSize": 1024,
+      "nonce": "19byGrZARBKGp/ry",
+      "cipherSha256": "2ccd9778d0d939ef0443f86b424a284cb9c1e6f510fc5df7da0b6587f7ef495f",
+      "blobSha": "e82783751e1980e14312e6daecb281be06f21102"
+    },
+    {
+      "index": 4,
+      "repo": "63df44ac5d57593e",
+      "path": "ghostvault/3d/580d271cfe2f308c134ddf67ededaecb.bin",
+      "plainSize": 904,
+      "nonce": "RkpWtjd/QyjzhXyk",
+      "cipherSha256": "5402c4b433bb1e7e0f9c2b364d893cdc1b27004e0fade3401710a471b6c1d46e",
+      "blobSha": "8b5d3812c8549b271780d4c35c5868edade9a109"
+    }
+  ],
+  "repos": {
+    "63df44ac5d57593e": {
+      "owner": "alice",
+      "repo": "vault1",
+      "baseFolder": "ghostvault",
+      "committed": true,
+      "deleted": false
+    },
+    "86585184fd24fea5": {
+      "owner": "alice",
+      "repo": "vault2",
+      "baseFolder": "ghostvault",
+      "committed": true,
+      "deleted": false
+    }
+  },
+  "originalRemoved": true,
+  "notes": [],
+  "restore": null
+}

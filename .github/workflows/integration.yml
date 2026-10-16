@@ -1,0 +1,56 @@
+name: Real GitHub integration (manual)
+
+# Runs the optional tests in tests/integration against dedicated, private test
+# repositories. Never runs automatically. See docs/INTEGRATION_TESTING.md for the set-up:
+#   secrets.GV_IT_TOKEN  fine-grained token, only the test repositories, Contents read/write
+#   vars.GV_IT_REPOS     comma-separated owner/ghostvault-it-* repositories
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-github-integration   # the test repositories are shared: one run at a time
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: github-integration
+    env:
+      GV_IT_TOKEN: ${{ secrets.GV_IT_TOKEN }}
+      GV_IT_REPOS: ${{ vars.GV_IT_REPOS }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: python -m pip install -e ".[dev]"
+      - name: Check that the integration settings exist
+        run: |
+          if [ -z "$GV_IT_TOKEN" ] || [ -z "$GV_IT_REPOS" ]; then
+            echo "::error::Set secrets.GV_IT_TOKEN and vars.GV_IT_REPOS (see docs/INTEGRATION_TESTING.md)."
+            exit 1
+          fi
+      - name: Run the real-GitHub tests
+        env:
+          GV_IT_ARTIFACTS: ${{ runner.temp }}/ghostvault-it
+        # GhostVault's own log (INFO and above) and an HTTP trace go to the artifact folder.
+        # Neither contains the token or any file content; see docs/INTEGRATION_TESTING.md.
+        run: >-
+          python -m pytest -rA tests/integration
+          --log-file="$GV_IT_ARTIFACTS/ghostvault.log" --log-file-level=INFO
+          --log-file-format="%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s"
+          --log-file-date-format="%Y-%m-%dT%H:%M:%S"
+          --junitxml="$GV_IT_ARTIFACTS/results.xml"
+      - name: Keep the diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-diagnostics
+          path: ${{ runner.temp }}/ghostvault-it
+          retention-days: 14
+          if-no-files-found: warn

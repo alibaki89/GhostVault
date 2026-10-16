@@ -1,0 +1,37 @@
+% Fig.: the journal states of one ghost record and the transitions between them.
+\begin{tikzpicture}[
+  font=\scriptsize,
+  st/.style={draw=black!65, fill=black!5, rounded corners=5pt, inner xsep=3pt, inner ysep=2.2pt,
+             font=\scriptsize\ttfamily, minimum height=5.2mm},
+  ok/.style={st, fill=black!78, draw=black!78, text=white},
+  gone/.style={draw=black!45, dashed, rounded corners=5pt, inner sep=2.2pt, font=\scriptsize\itshape,
+               text=black!65, minimum height=5.2mm},
+  arr/.style={-{Latex[length=1.3mm,width=1mm]}, draw=black!65},
+  fail/.style={arr, densely dashed},
+  lab/.style={font=\scriptsize, text=black!75, align=left,
+              execute at begin node={\hyphenpenalty=10000}},
+]
+\def\step{9.5mm}
+\node[st] (up) at (0,0) {uploading};
+\node[st, below=\step of up.center, anchor=center] (stored) {stored};
+\node[st, below=\step of stored.center, anchor=center] (rem) {removing-original};
+\node[ok, below=\step of rem.center, anchor=center] (ready) {ready};
+\node[st, below=\step of ready.center, anchor=center] (res) {restoring};
+\node[st, below=\step of res.center, anchor=center] (clean) {cleanup};
+\node[gone, below=\step of clean.center, anchor=center] (gone) {record removed};
+\node[st] (del) at (-29mm, 0 |- ready) {deleting};
+
+\fill[black!70] ([yshift=6mm]up.north) circle (0.9mm) coordinate (start);
+\draw[arr] ([yshift=5.1mm]up.north) -- node[lab, right=1mm] {plan and key recorded} (up);
+\draw[arr] (up) -- node[lab, right=1mm] {chunks committed and verified} (stored);
+\draw[arr] (stored) -- node[lab, right=1mm] {original about to be moved aside} (rem);
+\draw[arr] (rem) -- node[lab, right=1mm] {original deleted, or kept} (ready);
+\draw[arr] (ready) -- node[lab, left=1mm] {restore} (res);
+\draw[arr] (res) -- node[lab, right=1mm] {file published under its name} (clean);
+\draw[arr] (clean) -- node[lab, right=1mm] {chunks gone from every branch} (gone);
+
+\draw[fail] (up.west) -| node[lab, pos=0.25, above] {failure} (del.north);
+\draw[arr] (ready.west) -- node[lab, above] {Reset} (del.east);
+\draw[arr] (del.south) |- node[lab, pos=0.25, right] {chunks gone} (gone.west);
+\draw[fail] (res.east) -- ++(4mm,0) |- node[lab, pos=0.25, right] {failure: temporary file removed} (ready.east);
+\end{tikzpicture}

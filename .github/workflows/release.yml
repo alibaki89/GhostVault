@@ -1,0 +1,314 @@
+name: Release
+
+# Builds GhostVault's standalone applications for Windows (x64), macOS (Apple silicon and
+# Intel) and Linux (x86-64), after the full CI checks; starts each one to check it; and
+# collects them with the Python package and their checksums.
+#
+# - Run it by hand (Actions > Release > Run workflow) to build and check everything without
+#   releasing: the files are kept as the run's artifacts.
+# - Push a tag v<version> (the version in pyproject.toml) to do the same and then create a
+#   DRAFT release with the files. Nothing is published until someone publishes the draft.
+#
+# Code signing is optional: RELEASING.md lists the secrets that turn it on. Without them,
+# the Windows files are unsigned and the macOS apps have an ad-hoc signature, and the
+# release notes say so. No other secret or setting is needed, so the workflow runs as it is
+# in any repository.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      build_targets:
+        description: "Platforms to build (targeted mode skips redundant CI and does not collect a full release)"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - linux-and-intel-macos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.13"  # the Python inside the applications
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  checks:
+    # Targeted manual repairs reuse the latest successful main-branch CI result.
+    # Full releases and tag builds always rerun these checks.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_targets != 'linux-and-intel-macos' }}
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: build (${{ matrix.target }})
+    needs: checks
+    # needs: checks is intentionally skipped during a targeted manual repair.
+    # Never let a failed full-release check launch builds.
+    if: ${{ !cancelled() && (needs.checks.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_targets == 'linux-and-intel-macos' && needs.checks.result == 'skipped')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      # The old all-platform matrix stays the default, including on version tags.
+      matrix:
+        include: >-
+          ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && inputs.build_targets == 'linux-and-intel-macos' &&
+            '[{"target":"macos-intel","os":"macos-15-intel"},{"target":"linux-x86_64","os":"ubuntu-22.04"}]' ||
+            '[{"target":"windows-x64","os":"windows-2025"},{"target":"macos-apple-silicon","os":"macos-15"},{"target":"macos-intel","os":"macos-15-intel"},{"target":"linux-x86_64","os":"ubuntu-22.04"}]'
+          ) }}
+    env:
+      # Whether signing is set up, without putting the secrets themselves in every step.
+      HAS_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 != '' }}
+      HAS_MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_BASE64 != '' }}
+      HAS_MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Tk, a virtual display and the desktop-file checker (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtk8.6 xvfb desktop-file-utils
+
+      - name: Install GhostVault's dependencies and the build tools
+        env:
+          # cryptography >= 50 does not publish a macOS Intel wheel. Building its
+          # sdist against runner Homebrew OpenSSL dynamically breaks the frozen app
+          # when a mismatched libssl is bundled. Static link the OpenSSL used to
+          # build cryptography (documented by PyCA).
+          OPENSSL_STATIC: ${{ matrix.target == 'macos-intel' && '1' || '' }}
+          PIP_NO_CACHE_DIR: ${{ matrix.target == 'macos-intel' && '1' || '' }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r packaging/requirements-build.txt ".[dev]"
+
+      - name: Verify static cryptography OpenSSL linkage (Intel macOS)
+        if: matrix.target == 'macos-intel'
+        shell: bash
+        run: |
+          extension="$(python -c 'import cryptography.hazmat.bindings._rust as module; print(module.__file__)')"
+          otool -L "$extension"
+          if otool -L "$extension" | grep -E 'lib(ssl|crypto)[^/[:space:]]*\.dylib'; then
+            echo "::error::cryptography links dynamically to OpenSSL; use a statically linked build"
+            exit 1
+          fi
+
+      - name: Report the build environment
+        run: >
+          python -c "import platform, sys, tkinter, PyInstaller;
+          print(platform.platform(), platform.machine());
+          print('Python', sys.version);
+          print('Tcl/Tk', tkinter.Tcl().eval('info patchlevel'), '| PyInstaller', PyInstaller.__version__)"
+
+      # Ubuntu 22.04's Tk is not the one the CI matrix tests, and it is the one bundled here.
+      - name: Run the GUI tests with the Tk that is bundled (Linux)
+        if: runner.os == 'Linux'
+        env:
+          GV_REQUIRE_GUI: "1"
+          GV_TEST_TIMEOUT: "300"
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python -m pytest -q tests/test_gui.py
+
+      - name: Set up code signing (Windows)
+        if: runner.os == 'Windows' && env.HAS_WINDOWS_CERTIFICATE == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP "signing-certificate.pfx"
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          "GV_WINDOWS_CERTIFICATE=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Set up code signing (macOS)
+        if: runner.os == 'macOS' && env.HAS_MACOS_CERTIFICATE == 'true'
+        env:
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          certificate="$RUNNER_TEMP/signing-certificate.p12"
+          printf '%s' "$MACOS_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          # Search the signing keychain first, keeping the keychains already in the list.
+          keychains=("$keychain")
+          while IFS= read -r entry; do keychains+=("$entry"); done \
+            < <(security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')
+          security list-keychains -d user -s "${keychains[@]}"
+          rm -f "$certificate"
+
+      - name: Set up notarization (macOS)
+        if: runner.os == 'macOS' && env.HAS_MACOS_NOTARY_KEY == 'true'
+        env:
+          MACOS_NOTARY_KEY_BASE64: ${{ secrets.MACOS_NOTARY_KEY_BASE64 }}
+        run: |
+          printf '%s' "$MACOS_NOTARY_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
+          echo "GV_MACOS_NOTARY_KEY=$RUNNER_TEMP/notary-key.p8" >> "$GITHUB_ENV"
+
+      # Freeze with PyInstaller, start the application (version, self-check, its window),
+      # package it, then unpack (or install) the package and check the application again.
+      - name: Build, check and package
+        shell: bash
+        env:
+          GV_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          GV_WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+          GV_MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          GV_MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          GV_MACOS_NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          GV_TEST_TIMEOUT: "300"
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          export SOURCE_DATE_EPOCH
+          case "$RUNNER_OS" in
+            Linux) xvfb-run -a -s "-screen 0 1920x1200x24" python packaging/build.py all --require-window ;;
+            Windows) python packaging/build.py all --require-window --install ;;
+            *) python packaging/build.py all --require-window ;;
+          esac
+
+      - name: Keep the release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Keep PyInstaller's report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pyinstaller-report-${{ matrix.target }}
+          path: |
+            build/pyinstaller/*/warn-*.txt
+            build/pyinstaller/*/xref-*.html
+            build/collected-binaries.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove the signing keychain (macOS)
+        if: always() && runner.os == 'macOS' && env.HAS_MACOS_CERTIFICATE == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  collect:
+    # A targeted manual repair only emits its two release-* artifacts; it must not
+    # create partial/inaccurate all-platform checksums or release notes.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_targets != 'linux-and-intel-macos' }}
+    # The Python package, the checksums of every file and the release notes.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check the version (and that a tag matches it)
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            python packaging/build.py version --check-tag "$GITHUB_REF_NAME" --github-output "$GITHUB_OUTPUT"
+          else
+            python packaging/build.py version --github-output "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+
+      - name: Build the Python package (wheel and source distribution)
+        run: |
+          python -m pip install "$(grep -E '^build==' packaging/requirements-build.txt)"
+          python -m build --outdir dist/release
+
+      - name: Write the checksums and the release notes
+        run: |
+          python packaging/build.py checksums dist/release
+          require=""
+          if [ "$GITHUB_REF_TYPE" = tag ]; then require="--require-changelog"; fi
+          python packaging/build.py notes dist/release $require --output "$RUNNER_TEMP/release-notes.md"
+          cat "$RUNNER_TEMP/release-notes.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the Python package and the checksums
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-python-and-checksums
+          path: |
+            dist/release/ghostvault-*
+            dist/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Keep the release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: notes
+          path: ${{ runner.temp }}/release-notes.md
+          retention-days: 14
+
+  draft-release:
+    # Tags only. The only job that can write to the repository, and all it does is create
+    # (or, while it is still a draft, update) the release for the tag.
+    if: github.ref_type == 'tag'
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+          path: ${{ runner.temp }}/notes
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.collect.outputs.version }}
+          PRERELEASE: ${{ needs.collect.outputs.prerelease }}
+          NOTES: ${{ runner.temp }}/notes/release-notes.md
+        run: |
+          rm -f dist/release/BUILD-INFO-*.json
+          ls -l dist/release
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "::error::The release for $TAG is already published, so it is left unchanged. Release a new version instead."
+              exit 1
+            fi
+            gh release upload "$TAG" dist/release/* --clobber
+            gh release edit "$TAG" --notes-file "$NOTES"
+          else
+            flags=(--draft --verify-tag --title "GhostVault $VERSION" --notes-file "$NOTES")
+            if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+            gh release create "$TAG" "${flags[@]}" dist/release/*
+          fi
+          echo "Draft release for $TAG: review it on GitHub, then publish it." >> "$GITHUB_STEP_SUMMARY"

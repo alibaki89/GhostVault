@@ -1,0 +1,87 @@
+\section{Working with GitHub}\label{sec:github}
+
+GhostVault uses GitHub's REST API, version \code{2022-11-28}: the Git database endpoints (blobs,
+trees, commits and references~\cite{gh-git}) for all of its data, the Contents API only to give an
+empty repository its first commit and to look paths up one by one, and the repository endpoint to
+check a repository and its permissions.
+
+\subsection{Repositories and tokens}\label{sec:gh-checks}
+A repository is added with its address (only \code{github.com} is accepted) and a token. GhostVault
+accepts it only if GitHub describes it as private, not archived, and writable with that token
+(\code{permissions.push}); a fine-grained token needs \emph{Contents: read and write} on it. When,
+during an operation, GitHub rejects the token (401, 403) or no longer shows the repository, the
+repository is marked as failing in Settings and new ghosts avoid it. A 404 for a branch is taken to
+mean an empty repository only if the repository itself still answers, so a repository that has
+become inaccessible is never mistaken for an empty one.
+
+Tokens are kept in the operating system's keychain through the \code{keyring} library, which is
+restricted to backends that store secrets in an operating-system keychain: Windows Credential
+Manager, the macOS Keychain, Secret Service (libsecret) and KWallet. Plaintext or file-based backends
+are never used, even when installed, and \code{keyring}'s fall-through chain is bypassed, so a
+failing keychain can never fall through to a file. Without a usable keychain, tokens are kept in
+memory for the session. Tokens never appear in GhostVault's files or log, and GitHub's own error
+messages, where they are logged or kept in a record's notes, pass through a filter that removes
+anything shaped like a token.
+
+\subsection{Transport}
+Requests go over one persistent HTTPS connection per thread to \code{api.github.com}, so a TCP and
+TLS handshake is not paid per request. A proxy configured in the environment is honoured, with its
+credentials, by tunnelling through it. Certificates are verified against the operating system's
+trust store through \code{truststore}~\cite{truststore}, so certificate authorities installed by the
+system or an organisation are trusted exactly as the system's browser trusts them; one TLS context is
+passed explicitly to every request, and Python's process-wide defaults are never changed. Redirects
+for renamed repositories are followed (301 and 302 for reads, 307 and 308 for any request), never to
+another host and at most three in a row. A reply larger than 128\,MiB is not read.
+
+Before an operation, a four-second check asks GitHub's \code{/rate\_limit} endpoint, authenticated
+with a token, whether GitHub can be reached. An answer counts only if it comes from GitHub: a proxy
+asking for a login, a sign-in page or filter answering in GitHub's place (no GitHub request id), and
+a certificate that is not GitHub's are each reported as such instead of being taken for ``online''.
+
+\subsection{Retries, rate limits and pacing}
+Every request passes through one retry layer per vault (\tabref{tab:retries}). Rate limits are
+waited out rather than treated as failures: a large upload can meet GitHub's limits, and waiting is
+better than undoing hours of work. The window's progress line says until when it waits.
+
+\begin{table}[t]
+\caption{What the retry layer does}\label{tab:retries}
+\centering\footnotesize
+\begin{tabular}{@{}L{24mm}L{56mm}@{}}
+\toprule
+\textbf{Situation} & \textbf{What happens} \\
+\midrule
+no reply; 500, 502, 503, 504 & retried, if safe to repeat: at most 6 tries, exponential backoff with
+full jitter (1, 2, 4\,s \dots, at most 60\,s) \\ \addlinespace[1.6pt]
+429, or 403 with rate-limit signs & waited out: \code{Retry-After} (seconds or an HTTP date), else
+until \code{X-RateLimit-Reset}, else 1, 2, 4 \dots 15 minutes; a single wait over 65 minutes, or
+3 hours of waiting for one request, is reported instead \\ \addlinespace[1.6pt]
+other 4xx & not retried: it describes a real problem \\ \addlinespace[1.6pt]
+any write & serialised, at least 1\,s after the previous write \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+GitHub asks integrators to make requests serially rather than concurrently, and to wait at least one
+second between write requests~\cite{gh-best}. GhostVault serialises all writes and spaces them at
+least one second apart. Downloads during a restore are reads and run up to eight at a time: below
+GitHub's limit of 100 concurrent requests~\cite{gh-rate}, but not strictly serial; a rate-limit reply
+to any of them is waited out like any other.
+
+\subsection{Uncertain outcomes}\label{sec:uncertain}
+Every read, and creating a blob, a tree or a commit, is safe to repeat: blobs are content-addressed,
+and trees and commits are unreferenced until a branch points at them. Moving a branch and creating a
+file through the Contents API are not. When one of those fails without a reply, or with an error
+that does not say whether it took effect, the outcome is \emph{uncertain}, and GhostVault reads the
+branch to find out: if it points at the new commit, the change happened; if it is unchanged, the
+update is sent again (it can only fast-forward, so repeating it is safe); if someone else moved it,
+the commit is rebuilt on top of the new head. A reply that names a different commit than the one
+sent is resolved the same way. If GitHub refuses a tree because its base no longer holds a path being
+deleted (a 422), the branch is read again and the commit rebuilt from it. A branch is never forced,
+so another writer's commits to the same repository are never overwritten.
+
+\subsection{Large repositories}
+Listing a branch reads its tree recursively. GitHub truncates a recursive listing beyond 100\,000
+entries or 7\,MB~\cite{gh-git}; GhostVault then looks each path it needs up on its own instead, which
+is slower but correct. A repository of the size GitHub recommends, ``ideally less than 1\,GB, and
+less than 5\,GB is strongly recommended''~\cite{gh-large}, holds at most about ten thousand chunks,
+far below the point where listings are truncated.

@@ -1,0 +1,44 @@
+\section{Limitations}\label{sec:limitations}
+
+\emph{A ghost is a single copy.} Every chunk is stored once, in one repository, and GhostVault never
+makes a second copy. Placement spreads storage; it does not protect against losing a repository, and
+distributed placement makes a file depend on every repository that holds one of its chunks. What
+GitHub deletes, loses or withholds cannot be brought back, and the user's use of GitHub is subject to
+GitHub's terms, including its limits on repository size, request rates and bandwidth. Files that
+cannot be lost need another copy elsewhere.
+
+\emph{Removed is not erased.} Restoring a ghost removes its chunks from the branch, not from Git's
+history, and GitHub may keep unreachable objects for a time. Every earlier version of the repository
+backup stays in history too. A removed file stays unreadable only while its key exists nowhere. Getting
+rid of old objects for good requires deleting the repository, or rewriting its history and asking
+GitHub to purge cached objects. On SSDs and copy-on-write file systems, deleting the original does not
+reliably destroy its old content either.
+
+\emph{Keys at rest and in memory.} File keys are stored unencrypted in owner-only files
+(\secref{sec:keys}), so anyone who can read the data folder, or a backup of it, and the repositories
+can decrypt the files. Keys, passphrases and tokens pass through process memory, which Python cannot
+reliably erase; swap, hibernation files and crash dumps may hold them.
+
+\emph{The deletion window on Linux and macOS.} A program that already had the original open for
+writing can still write to it in the moment between GhostVault's last check and the deletion
+(\secref{sec:remove}). Windows closes that window; Linux and macOS offer no way to.
+
+\emph{Metadata.} GitHub learns what \tabref{tab:learn} lists: how much is stored, approximate sizes,
+and when ghosts come and go. A preview's existence reveals that a ghost is probably an image.
+
+\emph{Throughput.} GitHub's pacing and limits, not GhostVault, bound how fast files can be ghosted
+(\secref{sec:performance}); a large file takes minutes to hours, and GhostVault waits whenever GitHub
+asks it to. Making a ghost also costs time linear in the number of ghosts.
+
+\emph{One computer at a time.} A data folder is used by one GhostVault process at a time. Two
+computers can share repositories, and the backup detects ghosts it does not know, but they do not
+share or merge ghosts.
+
+\emph{Scope.} Only repositories on \code{github.com} are supported, one file is ghosted at a time,
+and folders are not. Tk exposes little to screen readers; every action can be reached from the
+keyboard, but GhostVault cannot do more without leaving Tk. Standalone builds are unsigned unless a
+signing certificate is configured, and there is no automatic update.
+
+\emph{Verification.} The limits of what was verified are listed in \secref{sec:status}: the Windows
+and macOS behaviour, the real-GitHub tests, the release workflow and the standalone applications were
+not run for the version described here.

@@ -1,0 +1,36 @@
+# Weekly update proposals for the Python dependencies, the release build tools and the
+# GitHub Actions.
+#
+# Version updates are grouped: at most one pull request a week for each of the three, each
+# tested once by the full CI matrix (ci.yml does not run Dependabot's branch pushes
+# separately). Security updates are not grouped: each arrives as its own pull request as
+# soon as an advisory is published, and is tested the same way.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        applies-to: version-updates
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: "/packaging"  # requirements-build.txt: PyInstaller and the package builder
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      build-tools:
+        applies-to: version-updates
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns: ["*"]

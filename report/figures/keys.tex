@@ -1,0 +1,47 @@
+% Fig.: the keys, what each is made from, and what each protects.
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw=black!65, fill=white, rounded corners=1.2pt, align=center, inner sep=2.4pt,
+              minimum height=7mm, text width=#1},
+  box/.default=30mm,
+  dark/.style={box=#1, fill=black!78, draw=black!78, text=white},
+  data/.style={box=#1, fill=black!5},
+  arr/.style={-{Latex[length=1.4mm,width=1.1mm]}, draw=black!65, semithick},
+  how/.style={font=\scriptsize, fill=white, inner sep=1pt, align=center},
+  note/.style={font=\scriptsize\itshape, text=black!62, align=center,
+              execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  panel/.style={font=\scriptsize\scshape, text=black!60},
+]
+% ---- (a) one ghost --------------------------------------------------------------------------
+\node[dark=78mm] (fk) at (0,0) {\textbf{file key}: 32 random bytes, one per ghost, kept in its record};
+\node[data=34mm, below=12mm of fk.south west, anchor=north west] (chunks)
+  {encrypted chunks $0,\dots,n{-}1$\\\scriptsize on GitHub};
+\node[box=30mm, below=12mm of fk.south east, anchor=north east] (pk) {preview key};
+\node[data=30mm, below=9mm of pk] (pv) {encrypted preview\\\scriptsize on GitHub and in the cache};
+\draw[arr] (chunks.north |- fk.south) -- node[how] {AES-256-GCM} (chunks.north);
+\draw[arr] (pk.north |- fk.south) -- node[how] {HKDF-SHA256} (pk.north);
+\draw[arr] (pk) -- node[how] {AES-256-GCM} (pv);
+\node[note, below=1.5mm of chunks, text width=40mm]
+  {a fresh random 96-bit nonce per chunk, kept in the record; associated data: file id, index,
+   count, size, padding};
+\node[note, below=1.5mm of pv, text width=34mm] {padded: every preview is 32\,KiB\,+\,28\,bytes};
+\node[panel, anchor=south west] at ([yshift=2mm]fk.north west) {(a) one ghost};
+
+% ---- (b) recovery ---------------------------------------------------------------------------
+\begin{scope}[xshift=90mm]
+\node[dark=37mm] (pp) at (-20.5mm,0) {\textbf{passphrase}\\\scriptsize 12+ characters, or generated};
+\node[dark=37mm] (rk) at (20.5mm,0) {\textbf{recovery key}\\\scriptsize 130 random bits, shown once};
+\node[box=37mm, below=12mm of pp] (fkey) {recovery-file key};
+\node[box=37mm, below=12mm of rk] (bkey) {backup key\\\scriptsize kept in \texttt{settings.json}};
+\node[data=37mm, below=9mm of fkey] (file) {recovery file\\\scriptsize wherever the user keeps it};
+\node[data=37mm, below=9mm of bkey] (bak) {repository backup\\\scriptsize \texttt{backup.gvrb} in each repository};
+\draw[arr] (pp) -- node[how] {Argon2id, own salt} (fkey);
+\draw[arr] (rk) -- node[how] {Argon2id, own salt} (bkey);
+\draw[arr] (fkey) -- node[how] {AES-256-GCM} (file);
+\draw[arr] (bkey) -- node[how] {AES-256-GCM} (bak);
+\node[note, below=1.5mm of file.south east, anchor=north, xshift=2mm, text width=70mm]
+  {both hold every complete record (file key, nonces, chunk map) and the repository list,
+   never a token};
+\node[panel, anchor=south west] at ([yshift=2mm]pp.north west) {(b) recovery};
+\end{scope}
+\end{tikzpicture}
