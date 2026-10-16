@@ -171,6 +171,9 @@ jobs:
           GV_MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           GV_MACOS_NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
           GV_TEST_TIMEOUT: "300"
+          # Keep installer support/update links pointing to the official public project,
+          # including when release binaries are compiled in a separate build repository.
+          GV_PROJECT_URL: "https://github.com/alibaki89/GhostVault"
         run: |
           SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
           export SOURCE_DATE_EPOCH

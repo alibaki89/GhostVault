@@ -6,7 +6,10 @@ All notable changes to GhostVault are listed here. The format follows
 
 ## [1.0.0] - 2026-10-16
 
-The first release.
+The first release. [Download the published v1.0.0 applications](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)
+for Windows (installer or portable), macOS (Intel and Apple silicon), and Linux x86-64.
+The release includes SHA-256 checksums; it does not include a Python wheel. The source
+is available from the repository and GitHub's generated source archives.
 
 ### Storing and restoring files
 

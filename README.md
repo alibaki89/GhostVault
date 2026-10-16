@@ -1,7 +1,10 @@
 # GhostVault
 
-GhostVault moves files off your computer into your own private GitHub repositories,
-encrypted, and brings them back when you need them.
+**Free-to-use, private, encrypted cloud storage using your own GitHub repositories.**
+GhostVault has no subscription fee. It encrypts files on your computer, stores the
+encrypted pieces in private repositories you control, and restores the files when you
+need them. GitHub's storage and usage limits still apply; this is not unlimited cloud
+storage or a substitute for an independent backup.
 
 It splits a file into chunks, encrypts each chunk on your computer, uploads the chunks,
 checks on GitHub that every chunk arrived intact, and only then removes the original. The
@@ -23,26 +26,31 @@ tokens are kept in your operating system's keychain.
 - **The keys are in GhostVault's data folder.** If you lose this computer without a recovery
   file or the repository backup, nobody can decrypt your ghosts. Prepare for that from the
   start (*Settings → Recovery*).
-- **Your use of GitHub is subject to GitHub's terms**, including its limits on repository
-  size, request rates and bandwidth. GhostVault follows GitHub's request limits, and
-  [SECURITY.md](SECURITY.md#where-the-protection-ends) quotes what GitHub may do about
-  excessive use.
+- **Free does not mean unlimited.** GhostVault itself is free to use, but storage depends
+  on your GitHub account and GitHub's terms, including repository size, request rates and
+  bandwidth. GhostVault observes GitHub's request limits; GitHub can restrict excessive
+  use. Read [SECURITY.md](SECURITY.md#where-the-protection-ends) before relying on it.
 
 ## Download
 
-Releases have a ready-to-run application for each system, and a Python package:
+**[Download GhostVault v1.0.0](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)**
+from the official GitHub release:
 
 | System | Download |
 | --- | --- |
-| Windows 10 and 11, 64-bit | `GhostVault-<version>-windows-x64-setup.exe` (installer) or `-portable.zip` |
-| macOS, Apple silicon | `GhostVault-<version>-macos-apple-silicon.dmg` |
-| macOS, Intel | `GhostVault-<version>-macos-intel.dmg` |
-| Linux, x86-64 | `GhostVault-<version>-linux-x86_64.tar.gz` |
-| any system with Python 3.11+ | `ghostvault-<version>-py3-none-any.whl` |
+| Windows 10 and 11, 64-bit | [Installer (.exe)](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/GhostVault-1.0.0-windows-x64-setup.exe) or [portable (.zip)](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/GhostVault-1.0.0-windows-x64-portable.zip) |
+| macOS, Apple silicon (M-series) | [Disk image (.dmg)](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/GhostVault-1.0.0-macos-apple-silicon.dmg) |
+| macOS, Intel | [Disk image (.dmg)](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/GhostVault-1.0.0-macos-intel.dmg) |
+| Linux, x86-64 | [Application archive (.tar.gz)](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/GhostVault-1.0.0-linux-x86_64.tar.gz) |
 
-[INSTALL.md](INSTALL.md) explains how to check a download against `SHA256SUMS.txt`, install
-it, open a build that is not code-signed, set up a repository and a token, and use the
-command-line options.
+Verify your file against [SHA256SUMS.txt](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/SHA256SUMS.txt)
+before running it. The v1.0.0 release does **not** contain an installable Python wheel;
+Python users can [install from source](INSTALL.md#with-python-on-any-system).
+
+[INSTALL.md](INSTALL.md) explains checksum verification, installation, opening unsigned
+builds, setting up a private repository and token, and command-line options. Windows builds
+are unsigned and the macOS builds are not Apple-notarized; consult the installation guide
+before overriding an operating-system warning.
 
 ## How GhostVault protects your files
 
@@ -125,6 +133,12 @@ that, so ghosting takes at least one second per 512 KiB chunk, and a large file 
 GitHub's hourly limits, in which case GhostVault waits and then continues. Restoring
 downloads up to eight chunks at a time. Encryption is not the bottleneck: on the computer
 measured in the technical report, AES-256-GCM ran at about 1,600 MiB/s.
+
+## Release and support
+
+- [GhostVault v1.0.0 downloads and release notes](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)
+- [Report a problem or request a feature](https://github.com/alibaki89/GhostVault/issues)
+- [Report a vulnerability privately](SECURITY.md#reporting-a-vulnerability)
 
 ## Documentation
 

@@ -7,10 +7,12 @@ and repositories in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Reporting a vulnerability
 
-Please report a vulnerability privately, through *Report a vulnerability* on the
-repository's *Security* tab. If that option is not offered, open an issue that only says
-you have a security report, without details, and wait for a private channel. Never
-include a real token, recovery key, passphrase or file in a report.
+Please report a vulnerability privately through *Report a vulnerability* in the
+[official repository's Security tab](https://github.com/alibaki89/GhostVault/security/advisories),
+if private vulnerability reporting is enabled. Otherwise, open a public issue saying only
+that you need a private reporting channel, **without vulnerability details**, and wait for
+private contact instructions. Never include a real token, recovery key, passphrase or
+private file in any public issue.
 
 ## In short
 
@@ -129,6 +131,9 @@ only that the computer talks to `api.github.com`, and how much and when.
 - **The log** (`logs/ghostvault.log`) records operations by file id and repository name. It
   never records file names chosen for ghosts, keys, tokens, or an exception's message
   (which could hold a path).
-- **Unsigned builds.** A standalone build without a code signature (see the release notes)
-  can only be checked against `SHA256SUMS.txt` from the same release. Compare the checksum
-  before you first open it.
+- **Unsigned builds.** The v1.0.0 Windows binaries are unsigned and the macOS disk images
+  are not Apple-notarized. Verify each download against
+  [SHA256SUMS.txt](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/SHA256SUMS.txt)
+  from the official release before first use. A matching hash confirms that the file agrees
+  with the hash published on that GitHub release; it is not independent proof of the
+  publisher's identity or protection against a compromised release account.

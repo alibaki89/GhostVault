@@ -1,8 +1,9 @@
 # Installing GhostVault
 
 GhostVault runs on Windows 10 and 11 (64-bit), on macOS (Apple silicon and Intel) and on
-Linux (x86-64). Each release on GitHub has a ready-to-run application for each of them;
-you can also install it with Python on any system Python and Tk support.
+Linux (x86-64). [GhostVault v1.0.0](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)
+provides five ready-to-run downloads (two Windows choices, one Linux and two macOS).
+You can also install GhostVault from its source with Python and Tk support.
 
 Whichever you choose, GhostVault keeps its data in the same place (below), so you can
 switch between the application and a Python installation, or update, without losing
@@ -10,26 +11,28 @@ anything.
 
 ## Check your download
 
-Every release lists the SHA-256 checksum of each file in `SHA256SUMS.txt`. Compare it with
-your download before you open it, especially if the release notes say the file is not
-code-signed:
+For v1.0.0, download [SHA256SUMS.txt](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/SHA256SUMS.txt)
+from the same [official release](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)
+as your application. Compare its SHA-256 entry with the downloaded file **before** opening
+it. These checks detect a mismatched or corrupted download; a checksum hosted alongside an
+unsigned release is not an independent proof of publisher identity.
 
 | System | Command | Compare with |
 | --- | --- | --- |
-| Windows (PowerShell) | `Get-FileHash .\GhostVault-<version>-windows-x64-setup.exe` | the file's line in `SHA256SUMS.txt` |
-| macOS (Terminal) | `shasum -a 256 GhostVault-<version>-macos-apple-silicon.dmg` | the same |
+| Windows (PowerShell) | `Get-FileHash .\GhostVault-1.0.0-windows-x64-setup.exe -Algorithm SHA256` | the file's line in `SHA256SUMS.txt` |
+| macOS (Terminal) | `shasum -a 256 GhostVault-1.0.0-macos-apple-silicon.dmg` | the same |
 | Linux | `sha256sum --check --ignore-missing SHA256SUMS.txt` | prints `OK` for each file you downloaded |
 
 ## Windows
 
 Two downloads; both contain the same program:
 
-- `GhostVault-<version>-windows-x64-setup.exe`: the installer. It installs GhostVault for
+- `GhostVault-1.0.0-windows-x64-setup.exe`: the installer. It installs GhostVault for
   your account only, without administrator rights (into
   `%LOCALAPPDATA%\Programs\GhostVault`), or, if you choose so on its first page, for all
   users (into `C:\Program Files\GhostVault`). It adds GhostVault to the Start menu, and to
   the desktop if you tick that box.
-- `GhostVault-<version>-windows-x64-portable.zip`: no installation. Unpack it anywhere and
+- `GhostVault-1.0.0-windows-x64-portable.zip`: no installation. Unpack it anywhere and
   start `GhostVault.exe`.
 
 **If Windows shows "Windows protected your PC".** Windows SmartScreen warns before it opens
@@ -56,11 +59,12 @@ Download the disk image for your Mac. To see which you have, choose *Apple menu 
 Mac*: a *Chip* line naming Apple M1 or later means Apple silicon; a *Processor* line naming
 Intel means Intel.
 
-- `GhostVault-<version>-macos-apple-silicon.dmg`
-- `GhostVault-<version>-macos-intel.dmg`
+- `GhostVault-1.0.0-macos-apple-silicon.dmg` (macOS 11.0 or newer)
+- `GhostVault-1.0.0-macos-intel.dmg` (macOS 10.15 or newer)
 
-Open the disk image and drag GhostVault to the Applications folder. The release notes give
-the oldest macOS version each build runs on.
+Open the disk image and drag GhostVault to the Applications folder. These minimum versions
+come from the published v1.0.0 build metadata; they are not a guarantee of compatibility
+with every installation or security configuration.
 
 **If macOS says GhostVault cannot be opened.** A build that is not notarized by Apple (the
 release notes say whether it is) is blocked the first time you open it. After checking the
@@ -84,13 +88,14 @@ ID signature, macOS may ask again.
 
 ## Linux
 
-`GhostVault-<version>-linux-x86_64.tar.gz` runs on 64-bit x86 Linux with the glibc version
-named in the release notes or later, and an X11 or XWayland desktop (Tk, which GhostVault's
-window uses, draws through X11).
+`GhostVault-1.0.0-linux-x86_64.tar.gz` runs on 64-bit x86 Linux with glibc 2.35 or
+newer and an X11 or XWayland desktop (Tk, which GhostVault's window uses, draws through
+X11). It was built on Ubuntu 22.04; other distributions may need compatible system
+libraries.
 
 ```
-tar -xzf GhostVault-<version>-linux-x86_64.tar.gz
-cd GhostVault-<version>-linux-x86_64
+tar -xzf GhostVault-1.0.0-linux-x86_64.tar.gz
+cd GhostVault-1.0.0-linux-x86_64
 ./GhostVault/ghostvault          # run it from here, or:
 ./install.sh                     # install it for your account
 ```
@@ -119,18 +124,26 @@ include Tkinter; elsewhere:
 | Arch | `sudo pacman -S python tk` |
 | macOS with Homebrew's Python | `brew install python-tk@3.13` (match your Python version) |
 
-Then install the wheel attached to the release, or the source:
+The v1.0.0 release has no wheel attached, so install from the
+[public source repository](https://github.com/alibaki89/GhostVault) instead. Download its
+source archive from the release page and extract it, or clone the repository. From its root:
 
-```
+```sh
 python3 -m venv ghostvault-env
-ghostvault-env/bin/python -m pip install ghostvault-<version>-py3-none-any.whl
+ghostvault-env/bin/python -m pip install .
 ghostvault-env/bin/ghostvault
 ```
 
-On Windows: `py -3 -m venv ghostvault-env`, then
-`ghostvault-env\Scripts\python -m pip install ghostvault-<version>-py3-none-any.whl` and
-`ghostvault-env\Scripts\ghostvault`. From a copy of the source, install with
-`python -m pip install .` instead.
+On Windows (PowerShell), from the extracted source directory:
+
+```powershell
+py -3 -m venv ghostvault-env
+.\ghostvault-env\Scripts\python.exe -m pip install .
+.\ghostvault-env\Scripts\ghostvault.exe
+```
+
+These commands install from local source; they do not imply GhostVault has been published
+to PyPI. The Python package and standalone applications use the same data folder.
 
 ## First steps
 

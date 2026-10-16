@@ -1,6 +1,14 @@
 # Releasing GhostVault
 
-A release consists of:
+The official project is [alibaki89/GhostVault](https://github.com/alibaki89/GhostVault).
+The [published v1.0.0 release](https://github.com/alibaki89/GhostVault/releases/tag/v1.0.0)
+contains five application downloads and `SHA256SUMS.txt`; GitHub supplies its standard
+source-code ZIP and tarball. A Python wheel and source distribution are **not** attached to
+v1.0.0, although the build workflow can produce them for future releases.
+
+## Release assets
+
+A full automated release build is designed to produce:
 
 | File | What it is |
 | --- | --- |
@@ -13,8 +21,14 @@ A release consists of:
 
 The applications are one-folder PyInstaller builds with Python 3.13, Tcl/Tk and
 GhostVault's dependencies inside. They use the same data folder as the Python package.
-Everything is built by `.github/workflows/release.yml`, which runs `packaging/build.py` on
-each platform; the same script builds locally.
+The full automated workflow is defined in `.github/workflows/release.yml`, which runs
+`packaging/build.py` on each platform; the same script builds locally. **v1.0.0 was
+published manually from previously verified build artifacts**, not from the workflow's
+automatic draft-release job in the public repository. The applications came from two
+successful build commits in a separate private build repository: Windows and Apple silicon
+from `89cc2bb`, and Linux and Intel macOS from `68ac85a`. The public source commit is
+`aff6558`; its v1.0.0 tag records the public source snapshot, not the exact Git commit used
+to build every binary. The published checksum file identifies the exact downloadable bytes.
 
 ## Preparing a release
 
@@ -26,24 +40,29 @@ each platform; the same script builds locally.
 
 ## Building with GitHub Actions
 
-The workflow needs no secrets and no settings, so it runs as it is in any repository,
-including a fork or a separate build repository.
+The workflow needs no signing secrets for unsigned builds and can run in a fork or a
+separate build repository. In the public GhostVault repository, **the Release workflow was
+disabled after preparing the manual v1.0.0 publication** so that creating its tag would not
+launch another costly build. Before a future automated release, review the workflow and
+explicitly enable it. Do not recreate or move the existing v1.0.0 tag.
 
-- **Without releasing:** *Actions → Release → Run workflow*, on any branch. The run checks,
-  builds and verifies everything, and keeps the files for 14 days as its artifacts:
-  `release-<target>` for each application, `release-python-and-checksums`, and `notes`
-  (the release notes, also shown in the run's summary).
-- **Releasing:** push a tag named after the version:
+- **Without releasing:** after enabling the workflow, choose *Actions → Release → Run
+  workflow* with `build_targets=all`. The run checks, builds and verifies everything and
+  retains `release-<target>`, `release-python-and-checksums` and `notes` artifacts for 14
+  days. The `linux-and-intel-macos` choice is a targeted repair option: it skips the full
+  CI gate and produces only those two platform artifacts, **not** a complete release.
+- **For a future version:** after enabling the workflow and verifying CI, push a **new**
+  tag matching the version set in the source, for example `v1.0.1` after updating both
+  version files and the changelog:
 
+  ```sh
+  git tag -a v1.0.1 -m "GhostVault 1.0.1"
+  git push origin v1.0.1
   ```
-  git tag -a v1.0.0 -m "GhostVault 1.0.0"
-  git push origin v1.0.0
-  ```
 
-  The run does the same, then creates a **draft** release for the tag with every file and
-  the notes. Nothing is public until someone publishes the draft on GitHub. Running the
-  workflow again for the same tag replaces the draft's files; once the release is
-  published, the workflow refuses to change it.
+  The run then builds all platforms and creates a **draft** release. Verify its assets
+  before publishing. A repeated run may update a draft, but the workflow refuses to
+  modify a published release.
 
 What a run does:
 
@@ -137,7 +156,7 @@ Settings, all optional, from the environment:
 | `GV_MACOS_NOTARY_PROFILE` | notarize with credentials saved by `xcrun notarytool store-credentials` |
 | `GV_MACOS_NOTARY_KEY`, `GV_MACOS_NOTARY_KEY_ID`, `GV_MACOS_NOTARY_ISSUER` | notarize with an App Store Connect API key (path, id, issuer) |
 | `GV_MACOS_NOTARY_APPLE_ID`, `GV_MACOS_NOTARY_PASSWORD`, `GV_MACOS_NOTARY_TEAM_ID` | notarize with an Apple ID and an app-specific password |
-| `GV_PROJECT_URL` | the repository named in the installer and the notes (default: the one GitHub Actions runs in, else GhostVault's) |
+| `GV_PROJECT_URL` | the public support/update repository named in installer metadata and release notes (this repository's workflow sets the official URL; copy that setting into any separate build repository) |
 | `SOURCE_DATE_EPOCH` | the time stamp given to every file in the zip and tar archives |
 
 ## What is inside an application
@@ -152,6 +171,20 @@ Settings, all optional, from the environment:
 - Windows: version information in both executables. macOS: an `Info.plist` with the
   version, the bundle identifier and the oldest macOS the binaries support. Linux: the
   menu entry and icon that `install.sh` installs.
+
+## Published v1.0.0 artifact details
+
+- Windows (installer and portable): built from `89cc2bb`; Python 3.13.16, unsigned.
+- macOS Apple silicon: built from `89cc2bb`; Python 3.13.15, not notarized.
+- macOS Intel: built from `68ac85a`; Python 3.13.15, not notarized.
+- Linux x86-64: built from `68ac85a`; Python 3.13.16, glibc 2.35 minimum.
+- All five file checksums are in the published
+  [SHA256SUMS.txt](https://github.com/alibaki89/GhostVault/releases/download/v1.0.0/SHA256SUMS.txt).
+- The public GitHub Release does not contain a wheel or source distribution artifact beyond
+  GitHub's automatically generated source-code archives. Do not advertise those as a wheel.
+- Because these artifacts were built in a separate repository, installer links embedded in
+  previously built packages may reflect that build repository. A future build should set
+  `GV_PROJECT_URL` to the public URL; updating documentation does not rewrite old binaries.
 
 ## Before publishing a draft
 

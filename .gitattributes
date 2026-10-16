@@ -1,0 +1,2 @@
+# Shell scripts must run on Linux even when the source is prepared on Windows.
+*.sh text eol=lf
