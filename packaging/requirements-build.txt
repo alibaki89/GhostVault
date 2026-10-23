@@ -6,6 +6,6 @@
 #
 # Dependabot proposes updates to these pins (.github/dependabot.yml).
 pyinstaller==6.22.3
-pyinstaller-hooks-contrib==2026.8
+pyinstaller-hooks-contrib==2026.9
 # Builds the wheel and the source distribution attached to a release.
 build==1.6.1

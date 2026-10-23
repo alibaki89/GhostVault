@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=84.2.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -38,10 +38,10 @@ classifiers = [
 #   keyring 25:      the operating system's keychain (Windows Credential Manager, macOS
 #                    Keychain, Secret Service on Linux); see ghostvault/credentials.py
 dependencies = [
-    "cryptography>=44",
-    "Pillow>=10.1",
-    "truststore>=0.9",
-    "keyring>=25",
+    "cryptography>=50.0.2",
+    "Pillow>=13.0.0",
+    "truststore>=0.10.5",
+    "keyring>=25.7.0",
 ]
 
 [project.urls]
@@ -52,8 +52,8 @@ Changelog = "https://github.com/alibaki89/GhostVault/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.6",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
 ]
 
 # A console script, not a gui-script: it is started from a terminal, and on Windows a
